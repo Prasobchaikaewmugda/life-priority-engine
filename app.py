@@ -465,44 +465,44 @@ def seed_profile() -> dict[str, Any]:
 
 
 def init_state() -> None:
-    if "lpe_profile" not in st.ข้อมูลชั่วคราว:
-        st.ข้อมูลชั่วคราว.lpe_profile = seed_profile()
-    if "lpe_review" not in st.ข้อมูลชั่วคราว:
-        st.ข้อมูลชั่วคราว.lpe_review = {}
-    if "lpe_saved_summary" not in st.ข้อมูลชั่วคราว:
-        st.ข้อมูลชั่วคราว.lpe_saved_summary = None
-    if "lpe_nav" not in st.ข้อมูลชั่วคราว:
-        st.ข้อมูลชั่วคราว.lpe_nav = "วันนี้ต้องทำอะไร"
-    if "lpe_nav_mobile" not in st.ข้อมูลชั่วคราว:
-        st.ข้อมูลชั่วคราว.lpe_nav_mobile = DESTINATION_TO_PRIMARY_NAV.get(
-            st.ข้อมูลชั่วคราว.lpe_nav, "••• เพิ่มเติม"
+    if "lpe_profile" not in st.session_state:
+        st.session_state.lpe_profile = seed_profile()
+    if "lpe_review" not in st.session_state:
+        st.session_state.lpe_review = {}
+    if "lpe_saved_summary" not in st.session_state:
+        st.session_state.lpe_saved_summary = None
+    if "lpe_nav" not in st.session_state:
+        st.session_state.lpe_nav = "วันนี้ต้องทำอะไร"
+    if "lpe_nav_mobile" not in st.session_state:
+        st.session_state.lpe_nav_mobile = DESTINATION_TO_PRIMARY_NAV.get(
+            st.session_state.lpe_nav, "••• เพิ่มเติม"
         )
-    if "lpe_nav_sidebar" not in st.ข้อมูลชั่วคราว:
-        st.ข้อมูลชั่วคราว.lpe_nav_sidebar = (
-            st.ข้อมูลชั่วคราว.lpe_nav
-            if st.ข้อมูลชั่วคราว.lpe_nav in DESKTOP_NAV_ITEMS
+    if "lpe_nav_sidebar" not in st.session_state:
+        st.session_state.lpe_nav_sidebar = (
+            st.session_state.lpe_nav
+            if st.session_state.lpe_nav in DESKTOP_NAV_ITEMS
             else "วันนี้ต้องทำอะไร"
         )
-    if "lpe_onboarding_step" not in st.ข้อมูลชั่วคราว:
-        st.ข้อมูลชั่วคราว.lpe_onboarding_step = 1
+    if "lpe_onboarding_step" not in st.session_state:
+        st.session_state.lpe_onboarding_step = 1
 
 
 def navigate_to(destination: str) -> None:
-    st.ข้อมูลชั่วคราว.lpe_nav = destination
-    st.ข้อมูลชั่วคราว.lpe_nav_mobile = DESTINATION_TO_PRIMARY_NAV.get(
+    st.session_state.lpe_nav = destination
+    st.session_state.lpe_nav_mobile = DESTINATION_TO_PRIMARY_NAV.get(
         destination, "••• เพิ่มเติม"
     )
     if destination in DESKTOP_NAV_ITEMS:
-        st.ข้อมูลชั่วคราว.lpe_nav_sidebar = destination
+        st.session_state.lpe_nav_sidebar = destination
 
 
 def sync_mobile_navigation() -> None:
-    destination = PRIMARY_NAV_DESTINATIONS[st.ข้อมูลชั่วคราว.lpe_nav_mobile]
+    destination = PRIMARY_NAV_DESTINATIONS[st.session_state.lpe_nav_mobile]
     navigate_to(destination)
 
 
 def sync_sidebar_navigation() -> None:
-    navigate_to(st.ข้อมูลชั่วคราว.lpe_nav_sidebar)
+    navigate_to(st.session_state.lpe_nav_sidebar)
 
 
 def days_to_exam(profile: dict[str, Any], plan_date: date | None = None) -> int:
@@ -530,8 +530,8 @@ def generate_missions(profile: dict[str, Any], for_tomorrow: bool = False) -> tu
     missions: list[dict[str, Any]] = []
     avoid: list[str] = []
 
-    if for_tomorrow and st.ข้อมูลชั่วคราว.get("lpe_saved_summary"):
-        summary = st.ข้อมูลชั่วคราว.lpe_saved_summary
+    if for_tomorrow and st.session_state.get("lpe_saved_summary"):
+        summary = st.session_state.lpe_saved_summary
         if summary.get("mode") == "วันพักฟื้น":
             mode = "วันพลังจำกัด"
             avoid.append("อย่าชดเชยด้วยการออกแรงหนักทันทีหลังวันพักฟื้น")
@@ -629,7 +629,7 @@ def mission_score(status: str) -> float:
 
 
 def summarize_day(missions: list[dict[str, Any]]) -> dict[str, Any]:
-    review = st.ข้อมูลชั่วคราว.lpe_review
+    review = st.session_state.lpe_review
     scores = [mission_score(review.get(m["id"], {}).get("status", "ไม่ได้ทำ")) for m in missions]
     score = round((sum(scores) / max(len(scores), 1)) * 100)
     reasons = [review.get(m["id"], {}).get("reason", "") for m in missions]
@@ -655,7 +655,7 @@ def summarize_day(missions: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def save_review(missions: list[dict[str, Any]]) -> None:
-    st.ข้อมูลชั่วคราว.lpe_saved_summary = summarize_day(missions)
+    st.session_state.lpe_saved_summary = summarize_day(missions)
 
 
 def render_hero(title: str, subtitle: str, icon: str = "🏠") -> None:
@@ -722,17 +722,17 @@ def render_nav() -> str:
         )
         st.divider()
         st.markdown("### ความพร้อมวันนี้")
-        st.date_input("วันที่วางแผน", key="sidebar_plan_date", value=parse_date(st.ข้อมูลชั่วคราว.lpe_profile.get("plan_date")))
-        st.selectbox("ระดับพลังเริ่มต้น", ["วันพลังพร้อม", "วันพลังจำกัด", "วันพักฟื้น"], key="sidebar_mode", index=["วันพลังพร้อม", "วันพลังจำกัด", "วันพักฟื้น"].index(mode_label(st.ข้อมูลชั่วคราว.lpe_profile.get("start_mode", "วันพลังพร้อม"))))
+        st.date_input("วันที่วางแผน", key="sidebar_plan_date", value=parse_date(st.session_state.lpe_profile.get("plan_date")))
+        st.selectbox("ระดับพลังเริ่มต้น", ["วันพลังพร้อม", "วันพลังจำกัด", "วันพักฟื้น"], key="sidebar_mode", index=["วันพลังพร้อม", "วันพลังจำกัด", "วันพักฟื้น"].index(mode_label(st.session_state.lpe_profile.get("start_mode", "วันพลังพร้อม"))))
         if st.button("ใช้ค่านี้กับวันนี้", use_container_width=True):
-            st.ข้อมูลชั่วคราว.lpe_profile["plan_date"] = st.ข้อมูลชั่วคราว.sidebar_plan_date
-            st.ข้อมูลชั่วคราว.lpe_profile["start_mode"] = st.ข้อมูลชั่วคราว.sidebar_mode
+            st.session_state.lpe_profile["plan_date"] = st.session_state.sidebar_plan_date
+            st.session_state.lpe_profile["start_mode"] = st.session_state.sidebar_mode
             st.rerun()
-    return st.ข้อมูลชั่วคราว.lpe_nav
+    return st.session_state.lpe_nav
 
 
 def render_cards(profile: dict[str, Any], missions: list[dict[str, Any]]) -> None:
-    summary = st.ข้อมูลชั่วคราว.get("lpe_saved_summary")
+    summary = st.session_state.get("lpe_saved_summary")
     score_text = "ยังไม่บันทึก" if not summary else f"{summary['score']}/100"
     mode_text = mode_label(profile.get("start_mode", "วันพลังพร้อม")) if not summary else summary["mode"]
     avoid = generate_missions(profile)[1][0]
@@ -790,8 +790,8 @@ def render_mission_card(mission: dict[str, Any], index: int, with_review: bool =
                 key=f"status_{mission['id']}",
                 label_visibility="collapsed",
             )
-        st.ข้อมูลชั่วคราว.lpe_review.setdefault(mission["id"], {})
-        st.ข้อมูลชั่วคราว.lpe_review[mission["id"]]["status"] = status
+        st.session_state.lpe_review.setdefault(mission["id"], {})
+        st.session_state.lpe_review[mission["id"]]["status"] = status
         if status != "ทำครบ":
             with cols[1]:
                 amount = st.number_input("ทำได้จริงเท่าไร", min_value=0, max_value=300, value=0, step=5, key=f"amount_{mission['id']}")
@@ -802,18 +802,18 @@ def render_mission_card(mission: dict[str, Any], index: int, with_review: bool =
                 ["ไม่มีเวลา", "เวรหนัก", "เหนื่อย", "นอนน้อย", "ตะคริว", "เวียนหัวมาก", "เป็นลม", "เจ็บหน้าอก", "ป่วย", "งานแทรก", "อื่น ๆ"],
                 key=f"reason_{mission['id']}",
             )
-            st.ข้อมูลชั่วคราว.lpe_review[mission["id"]].update({"amount": amount, "unit": unit, "reason": reason})
+            st.session_state.lpe_review[mission["id"]].update({"amount": amount, "unit": unit, "reason": reason})
         else:
-            st.ข้อมูลชั่วคราว.lpe_review[mission["id"]].update({"amount": mission.get("minutes", ""), "unit": "", "reason": ""})
+            st.session_state.lpe_review[mission["id"]].update({"amount": mission.get("minutes", ""), "unit": "", "reason": ""})
 
 
 def page_today() -> None:
-    profile = st.ข้อมูลชั่วคราว.lpe_profile
+    profile = st.session_state.lpe_profile
     missions, avoid = generate_missions(profile)
     render_hero("วันนี้ต้องทำอะไร", "เริ่มจากสิ่งสำคัญ ทำตามพลังจริง แล้วบันทึกผลในจุดเดียว")
     render_demo_warning()
     render_demo_about()
-    if st.ข้อมูลชั่วคราว.pop("lpe_onboarding_complete_notice", False):
+    if st.session_state.pop("lpe_onboarding_complete_notice", False):
         st.success("สร้างแผนวันนี้แล้ว เริ่มจากภารกิจแรกได้เลย")
     render_cards(profile, missions)
     render_pills(profile)
@@ -831,8 +831,8 @@ def page_today() -> None:
         st.success("บันทึกผลวันนี้แล้ว")
         st.rerun()
 
-    if st.ข้อมูลชั่วคราว.lpe_saved_summary:
-        summary = st.ข้อมูลชั่วคราว.lpe_saved_summary
+    if st.session_state.lpe_saved_summary:
+        summary = st.session_state.lpe_saved_summary
         st.markdown('<div class="section-title">สรุปวันนี้</div>', unsafe_allow_html=True)
         c1, c2, c3 = st.columns(3)
         c1.metric("คะแนนวันนี้", f"{summary['score']}/100")
@@ -851,8 +851,8 @@ def render_onboarding_step(step: int, title: str, description: str) -> None:
 
 
 def page_onboarding() -> None:
-    profile = st.ข้อมูลชั่วคราว.lpe_profile
-    step = int(st.ข้อมูลชั่วคราว.get("lpe_onboarding_step", 1))
+    profile = st.session_state.lpe_profile
+    step = int(st.session_state.get("lpe_onboarding_step", 1))
     render_hero("เริ่มต้นใช้งาน", "ตอบทีละขั้น แล้วระบบจะสร้างแผนวันนี้ให้", "🧭")
     render_demo_warning()
     render_demo_about()
@@ -875,12 +875,12 @@ def page_onboarding() -> None:
             )
         if next_step:
             profile["subject"] = subject.strip() or "วิชาหลักของคุณ"
-            st.ข้อมูลชั่วคราว.lpe_onboarding_step = 2
+            st.session_state.lpe_onboarding_step = 2
             st.rerun()
         return
 
     if st.button("← ย้อนกลับ", key=f"onboarding_back_{step}"):
-        st.ข้อมูลชั่วคราว.lpe_onboarding_step = step - 1
+        st.session_state.lpe_onboarding_step = step - 1
         st.rerun()
 
     if step == 2:
@@ -908,7 +908,7 @@ def page_onboarding() -> None:
         if next_step:
             profile["exam_date"] = exam_date
             profile["study_minutes"] = int(study_minutes)
-            st.ข้อมูลชั่วคราว.lpe_onboarding_step = 3
+            st.session_state.lpe_onboarding_step = 3
             st.rerun()
         return
 
@@ -966,7 +966,7 @@ def page_onboarding() -> None:
                     "calorie_note": calorie_note.strip(),
                 }
             )
-            st.ข้อมูลชั่วคราว.lpe_onboarding_step = 4
+            st.session_state.lpe_onboarding_step = 4
             st.rerun()
         return
 
@@ -986,20 +986,20 @@ def page_onboarding() -> None:
         unsafe_allow_html=True,
     )
     if st.button("สร้างแผนวันนี้", type="primary", use_container_width=True):
-        st.ข้อมูลชั่วคราว.lpe_saved_summary = None
-        st.ข้อมูลชั่วคราว.lpe_onboarding_step = 1
-        st.ข้อมูลชั่วคราว.lpe_onboarding_complete_notice = True
+        st.session_state.lpe_saved_summary = None
+        st.session_state.lpe_onboarding_step = 1
+        st.session_state.lpe_onboarding_complete_notice = True
         navigate_to("วันนี้ต้องทำอะไร")
         st.rerun()
 
 
 def page_tomorrow() -> None:
-    profile = dict(st.ข้อมูลชั่วคราว.lpe_profile)
+    profile = dict(st.session_state.lpe_profile)
     profile["plan_date"] = parse_date(profile.get("plan_date")) + timedelta(days=1)
-    missions, avoid = generate_missions(st.ข้อมูลชั่วคราว.lpe_profile, for_tomorrow=True)
+    missions, avoid = generate_missions(st.session_state.lpe_profile, for_tomorrow=True)
     render_hero("แผนพรุ่งนี้", "ไม่ใช่การลงโทษจากวันนี้ แต่เป็นการปรับเส้นทางจากผลจริง", "🌤️")
-    if st.ข้อมูลชั่วคราว.lpe_saved_summary:
-        s = st.ข้อมูลชั่วคราว.lpe_saved_summary
+    if st.session_state.lpe_saved_summary:
+        s = st.session_state.lpe_saved_summary
         st.info(f"ผลล่าสุด: {s['score']}/100 · โหมด {s['mode']} · อุปสรรคหลัก: {s['blocker']}")
     else:
         st.warning("ยังไม่มีผลสรุปวันนี้ ระบบจะแสดงแผนพรุ่งนี้แบบประมาณการ")
@@ -1009,7 +1009,7 @@ def page_tomorrow() -> None:
 
 
 def page_daily_detail() -> None:
-    profile = st.ข้อมูลชั่วคราว.lpe_profile
+    profile = st.session_state.lpe_profile
     render_hero("แผนละเอียดรายวัน", "แบ่งช่วงเวลาแบบง่ายเพื่อให้ทำได้จริง ไม่ใช่ตารางแน่นเกินไป", "🕘")
     meals = "กินให้ครบมื้อ ดื่มน้ำ และเลือกอาหารย่อยง่าย"
     if profile.get("calorie_note"):
@@ -1025,7 +1025,7 @@ def page_daily_detail() -> None:
 
 
 def page_30day() -> None:
-    profile = st.ข้อมูลชั่วคราว.lpe_profile
+    profile = st.session_state.lpe_profile
     st.button("← กลับไปเพิ่มเติม", on_click=navigate_to, args=("เพิ่มเติม",))
     render_hero("ภาพรวม 30 วัน", "ใช้เป็นเข็มทิศคร่าว ๆ แผนจริงยังต้องปรับจากผลแต่ละวัน", "🗺️")
     start = parse_date(profile.get("plan_date"))
@@ -1093,7 +1093,7 @@ def page_settings() -> None:
     render_hero("ตั้งค่าชีวิต", "ดูข้อมูลที่ใช้สร้างแผน และกลับไปแก้ทีละขั้นได้", "⚙️")
     render_demo_warning()
     render_demo_about()
-    profile = st.ข้อมูลชั่วคราว.lpe_profile
+    profile = st.session_state.lpe_profile
     st.markdown(
         f"""
         <div class="card">
@@ -1113,8 +1113,8 @@ def page_settings() -> None:
     payload = json.dumps(
         {
             "profile": {k: str(v) for k, v in profile.items()},
-            "review": st.ข้อมูลชั่วคราว.lpe_review,
-            "summary": st.ข้อมูลชั่วคราว.lpe_saved_summary,
+            "review": st.session_state.lpe_review,
+            "summary": st.session_state.lpe_saved_summary,
         },
         ensure_ascii=False,
         indent=2,
@@ -1128,7 +1128,7 @@ def page_settings() -> None:
         )
         if st.button("ล้างข้อมูลชั่วคราว", type="secondary"):
             for key in ["lpe_profile", "lpe_review", "lpe_saved_summary"]:
-                st.ข้อมูลชั่วคราว.pop(key, None)
+                st.session_state.pop(key, None)
             st.rerun()
 
 
