@@ -1,0 +1,3 @@
+exam_date,subject,study_units,days_remaining,reading_status,priority,notes
+2026-07-15,Demo Subject A,Unit 1|Unit 2|Unit 3,25,not_started,high,MOCK example exam
+2026-08-10,Demo Subject B,Module A|Module B,51,in_progress,medium,MOCK editable exam row

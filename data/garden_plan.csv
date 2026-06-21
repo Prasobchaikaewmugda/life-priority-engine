@@ -1,0 +1,3 @@
+date,work_item,estimated_minutes,min_energy_level,skip_if,notes
+2026-06-21,Inspect demo garden area,30,medium,heavy_shift|exam_within_7_days,MOCK example garden task
+2026-06-25,Water demo plants,20,low,day_mode_red,MOCK editable garden row

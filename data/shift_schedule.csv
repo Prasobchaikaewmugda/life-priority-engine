@@ -1,0 +1,6 @@
+date,shift,start_time,end_time,expected_workload,expected_free_minutes,notes
+2026-06-21,OFF,,,low,240,MOCK example day off
+2026-06-22,MORNING,07:00,15:00,medium,120,MOCK example morning shift
+2026-06-23,EVENING,15:00,23:00,medium,90,MOCK example evening shift
+2026-06-24,NIGHT,23:00,07:00,high,30,MOCK example night shift
+2026-06-25,OFF,,,low,180,MOCK editable schedule row

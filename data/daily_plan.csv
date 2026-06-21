@@ -1,0 +1,5 @@
+date,shift,mode,mission_id,mission_title,category,target_value,target_unit,priority,must_should_could,do_not_do_note
+2026-06-22,MORNING,Yellow Day,20260622_01_work,Complete the morning shift,Work,Scheduled shift,,1,Must,Do not begin Could missions before Must missions are protected.
+2026-06-22,MORNING,Yellow Day,20260622_02_study,Study Demo Subject A: Unit 1,Study,60 minutes,,2,Must,Do not begin Could missions before Must missions are protected.
+2026-06-22,MORNING,Yellow Day,20260622_03_health,Use light movement or recovery,Health,10–15 minutes,,3,Should,Do not begin Could missions before Must missions are protected.
+2026-06-22,MORNING,Yellow Day,20260622_04_project,Optional: Demo Personal Project,Project,Up to 30 minutes,,4,Could,Do not begin Could missions before Must missions are protected.

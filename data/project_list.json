@@ -1,0 +1,30 @@
+{
+  "_meta": {
+    "mock_data": true,
+    "editable": true,
+    "description": "Optional demo projects that must not displace higher priorities."
+  },
+  "projects": [
+    {
+      "project_id": "demo_project_01",
+      "name": "Demo Personal Project",
+      "priority": "could",
+      "allowed_minutes_per_day": 30,
+      "pause_when": [
+        "exam_is_within_7_days",
+        "day_mode_is_red"
+      ],
+      "status": "active"
+    },
+    {
+      "project_id": "demo_project_02",
+      "name": "Demo File Cleanup",
+      "priority": "could",
+      "allowed_minutes_per_day": 15,
+      "pause_when": [
+        "must_do_is_incomplete"
+      ],
+      "status": "paused"
+    }
+  ]
+}

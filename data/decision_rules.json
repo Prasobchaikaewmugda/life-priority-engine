@@ -1,0 +1,31 @@
+{
+  "_meta": {
+    "mock_data": true,
+    "editable": true,
+    "active_in_app": false,
+    "description": "Seed rule records only. Gate 1 does not execute decision logic."
+  },
+  "rules": [
+    {
+      "rule_id": "mock_red_day_recovery",
+      "condition": "day_mode == red",
+      "action": "reduce_nonessential_tasks_and_avoid_intense_exercise",
+      "priority": 100,
+      "explanation": "A mock safety-first planning rule for low-capacity days."
+    },
+    {
+      "rule_id": "mock_exam_window",
+      "condition": "days_until_exam < 7",
+      "action": "increase_study_priority_and_reduce_optional_projects",
+      "priority": 90,
+      "explanation": "A mock rule that keeps study ahead of optional work near an exam."
+    },
+    {
+      "rule_id": "mock_heavy_shift",
+      "condition": "expected_workload == high",
+      "action": "reduce_project_time",
+      "priority": 80,
+      "explanation": "A mock rule that reduces optional tasks after a heavy shift."
+    }
+  ]
+}

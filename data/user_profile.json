@@ -1,0 +1,36 @@
+{
+  "_meta": {
+    "mock_data": true,
+    "editable": true,
+    "description": "Gate 1 example profile. Replace these values with your own when ready."
+  },
+  "name": "Demo User",
+  "main_goal": "Balance mock work, study, recovery, and optional projects",
+  "wake_time": "07:00",
+  "sleep_target": "23:00",
+  "health_limits": [
+    "Reduce activity on low-energy days",
+    "Avoid intense exercise when feeling unwell"
+  ],
+  "study_goal": {
+    "description": "Review one demo study unit each day",
+    "target_minutes_per_day": 60
+  },
+  "project_limits": {
+    "max_minutes_per_day": 30,
+    "pause_when": [
+      "exam_is_within_7_days",
+      "day_mode_is_red"
+    ]
+  },
+  "garden_rules": {
+    "allowed_when": [
+      "day_off",
+      "energy_is_good"
+    ],
+    "avoid_when": [
+      "heavy_shift",
+      "exam_is_within_7_days"
+    ]
+  }
+}

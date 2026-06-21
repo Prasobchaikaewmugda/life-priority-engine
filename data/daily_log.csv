@@ -1,0 +1,5 @@
+date,mission_id,status,planned_value,actual_value,unit,reason,energy,workload,symptom,score,note,created_at
+2026-06-21,20260621_01_study,DONE,60 minutes,60 minutes,,,Yellow,Low,,100,,2026-06-21T10:42:19+07:00
+2026-06-21,20260621_02_health,DONE,10–15 minutes,10–15 minutes,,,Yellow,Low,,100,,2026-06-21T10:42:19+07:00
+2026-06-21,20260621_03_project,DONE,Up to 30 minutes,Up to 30 minutes,,,Yellow,Low,,100,,2026-06-21T10:42:19+07:00
+2026-06-21,20260621_04_lifemaintenance,PARTIAL,Up to 30 minutes,30,minutes,,Yellow,Low,,100,,2026-06-21T10:42:19+07:00

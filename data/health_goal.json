@@ -1,0 +1,22 @@
+{
+  "_meta": {
+    "mock_data": true,
+    "editable": true,
+    "description": "General planning preferences only; not medical guidance."
+  },
+  "goal": "Maintain consistent light activity and adequate recovery",
+  "preferred_exercise_types": [
+    "walking",
+    "light mobility"
+  ],
+  "physical_limits": [
+    "Skip intense activity on low-energy days"
+  ],
+  "preferred_food_patterns": [
+    "regular balanced meals",
+    "adequate water"
+  ],
+  "foods_to_reduce": [
+    "sugary drinks"
+  ]
+}
