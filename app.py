@@ -487,14 +487,20 @@ def init_state() -> None:
         st.session_state.lpe_onboarding_step = 1
 
 
-def navigate_to(destination: str) -> None:
-    st.session_state.lpe_nav = destination
-    st.session_state.lpe_nav_mobile = DESTINATION_TO_PRIMARY_NAV.get(
-        destination, "••• เพิ่มเติม"
-    )
-    if destination in DESKTOP_NAV_ITEMS:
-        st.session_state.lpe_nav_sidebar = destination
-
+def navigate_to(page: str) -> None:
+    # Widget-safe navigation.
+    # Do not mutate Streamlit widget keys after those widgets have been instantiated.
+    # Store the route in a private pending key, then sync widget keys at the top of main()
+    # on the next rerun before navigation widgets are created.
+    page = str(page or "").strip()
+    if not page:
+        return
+    st.session_state["_lpe_pending_page"] = page
+    st.session_state["lpe_current_page"] = page
+    try:
+        st.rerun()
+    except Exception:
+        return
 
 def sync_mobile_navigation() -> None:
     destination = PRIMARY_NAV_DESTINATIONS[st.session_state.lpe_nav_mobile]
@@ -1132,8 +1138,40 @@ def page_settings() -> None:
             st.rerun()
 
 
+
+# === LPE_V1_10B_3_NAV_STATE_READABILITY_HELPERS_START ===
+def _lpe_v110b3_sync_pending_navigation() -> None:
+    """Sync pending route before Streamlit navigation widgets are instantiated."""
+    pending_page = st.session_state.pop("_lpe_pending_page", None)
+    if not pending_page:
+        return
+    pending_page = str(pending_page).strip()
+    st.session_state["lpe_current_page"] = pending_page
+
+    try:
+        if "DESTINATION_TO_PRIMARY_NAV" in globals():
+            mobile_label = DESTINATION_TO_PRIMARY_NAV.get(pending_page)
+            if mobile_label:
+                st.session_state["lpe_nav_mobile"] = mobile_label
+        if "DESKTOP_NAV_ITEMS" in globals() and pending_page in DESKTOP_NAV_ITEMS:
+            st.session_state["lpe_nav_desktop"] = pending_page
+            st.session_state["lpe_sidebar_nav"] = pending_page
+            st.session_state["lpe_nav_sidebar"] = pending_page
+    except Exception:
+        st.session_state["lpe_current_page"] = pending_page
+
+
+def _lpe_v110b3_readability_css() -> None:
+    """Focused readability CSS for sidebar/nav/metric/setting pages."""
+    st.markdown('\n<style id="lpe-v110b3-stabilization">\n:root {\n  --lpe-v3-navy: #203254;\n  --lpe-v3-ink: #101827;\n  --lpe-v3-muted: #334155;\n  --lpe-v3-border: #d6deeb;\n  --lpe-v3-active: #6d4df2;\n  --lpe-v3-red: #ff4b5c;\n  --lpe-v3-cream: #fffaf0;\n}\n\n[data-testid="stAppViewContainer"] .block-container,\n[data-testid="stAppViewContainer"] .block-container p,\n[data-testid="stAppViewContainer"] .block-container span,\n[data-testid="stAppViewContainer"] .block-container li,\n[data-testid="stAppViewContainer"] .block-container label {\n  color: var(--lpe-v3-ink) !important;\n  opacity: 1 !important;\n}\n\n.lpe-hero, .hero, .header-card, .title-card,\ndiv[class*="hero"], div[class*="Header"], div[class*="header"] {\n  background-color: var(--lpe-v3-navy);\n}\n.lpe-hero *, .hero *, .header-card *, .title-card *,\ndiv[class*="hero"] *, div[class*="Header"] *, div[class*="header"] * {\n  color: #ffffff !important;\n  opacity: 1 !important;\n}\n\nsection[data-testid="stSidebar"] {\n  background: var(--lpe-v3-navy) !important;\n}\nsection[data-testid="stSidebar"] h1,\nsection[data-testid="stSidebar"] h2,\nsection[data-testid="stSidebar"] h3,\nsection[data-testid="stSidebar"] p,\nsection[data-testid="stSidebar"] span,\nsection[data-testid="stSidebar"] label,\nsection[data-testid="stSidebar"] small {\n  color: #ffffff !important;\n  opacity: 1 !important;\n}\n\nsection[data-testid="stSidebar"] [data-testid="stSelectbox"] label p,\nsection[data-testid="stSidebar"] [data-testid="stSelectbox"] label span {\n  color: #ffffff !important;\n  font-weight: 800 !important;\n}\nsection[data-testid="stSidebar"] div[data-baseweb="select"] > div {\n  background: #ffffff !important;\n  border: 2px solid #b8c2d8 !important;\n  color: var(--lpe-v3-ink) !important;\n  min-height: 48px !important;\n}\nsection[data-testid="stSidebar"] div[data-baseweb="select"] span,\nsection[data-testid="stSidebar"] div[data-baseweb="select"] div,\nsection[data-testid="stSidebar"] div[data-baseweb="select"] input {\n  color: var(--lpe-v3-ink) !important;\n  opacity: 1 !important;\n}\nsection[data-testid="stSidebar"] div[data-baseweb="select"] svg {\n  fill: var(--lpe-v3-ink) !important;\n  color: var(--lpe-v3-ink) !important;\n}\n\nsection[data-testid="stSidebar"] button,\nsection[data-testid="stSidebar"] [data-testid="stButton"] button {\n  background: #ffffff !important;\n  color: var(--lpe-v3-ink) !important;\n  border: 1px solid #cbd5e1 !important;\n  min-height: 44px !important;\n  font-weight: 800 !important;\n}\nsection[data-testid="stSidebar"] button *,\nsection[data-testid="stSidebar"] [data-testid="stButton"] button * {\n  color: var(--lpe-v3-ink) !important;\n  opacity: 1 !important;\n}\n\n[data-testid="stRadio"] div[role="radiogroup"] label {\n  background: #ffffff !important;\n  border: 1px solid var(--lpe-v3-border) !important;\n  color: var(--lpe-v3-ink) !important;\n  min-height: 42px !important;\n}\n[data-testid="stRadio"] div[role="radiogroup"] label *,\n[data-testid="stRadio"] div[role="radiogroup"] label p,\n[data-testid="stRadio"] div[role="radiogroup"] label span {\n  color: var(--lpe-v3-ink) !important;\n  opacity: 1 !important;\n  visibility: visible !important;\n  font-weight: 800 !important;\n}\n[data-testid="stRadio"] div[role="radiogroup"] label:has(input:checked) {\n  background: var(--lpe-v3-navy) !important;\n  border-color: var(--lpe-v3-navy) !important;\n}\n[data-testid="stRadio"] div[role="radiogroup"] label:has(input:checked) *,\n[data-testid="stRadio"] div[role="radiogroup"] label:has(input:checked) p,\n[data-testid="stRadio"] div[role="radiogroup"] label:has(input:checked) span {\n  color: #ffffff !important;\n}\n\n[data-testid="stMetric"],\n[data-testid="stMetric"] *,\ndiv[class*="metric"] *,\ndiv[class*="summary"] *,\ndiv[class*="card"] .metric *,\ndiv[class*="card"] .summary * {\n  color: var(--lpe-v3-ink) !important;\n  opacity: 1 !important;\n}\n[data-testid="stMetricValue"],\n[data-testid="stMetricDelta"],\n[data-testid="stMetricLabel"] {\n  color: var(--lpe-v3-ink) !important;\n}\n\n[data-testid="stExpander"] summary,\n[data-testid="stExpander"] summary *,\n[data-testid="stExpander"] p,\n[data-testid="stExpander"] li {\n  color: var(--lpe-v3-ink) !important;\n  opacity: 1 !important;\n}\n\n[data-testid="stTextInput"] label,\n[data-testid="stTextArea"] label,\n[data-testid="stSelectbox"] label,\n[data-testid="stNumberInput"] label,\n[data-testid="stDateInput"] label,\n[data-testid="stSlider"] label,\n[data-testid="stMultiSelect"] label {\n  color: var(--lpe-v3-ink) !important;\n  font-weight: 850 !important;\n  opacity: 1 !important;\n}\n\n@media (max-width: 820px) {\n  section[data-testid="stSidebar"] {\n    display: none !important;\n  }\n  .block-container {\n    padding-left: 1rem !important;\n    padding-right: 1rem !important;\n    max-width: 100% !important;\n  }\n  [data-testid="stRadio"] div[role="radiogroup"] {\n    display: flex !important;\n    flex-wrap: nowrap !important;\n    overflow-x: auto !important;\n    gap: 8px !important;\n    padding-bottom: 6px !important;\n  }\n  [data-testid="stRadio"] div[role="radiogroup"] label {\n    flex: 0 0 auto !important;\n    white-space: nowrap !important;\n    min-width: max-content !important;\n    max-width: 82vw !important;\n  }\n  [data-testid="column"] {\n    min-width: 100% !important;\n  }\n}\n</style>\n', unsafe_allow_html=True)
+# === LPE_V1_10B_3_NAV_STATE_READABILITY_HELPERS_END ===
+
 def main() -> None:
+    # === LPE_V1_10B_3_MAIN_SYNC_CALLS_START ===
+    _lpe_v110b3_sync_pending_navigation()
+    # === LPE_V1_10B_3_MAIN_SYNC_CALLS_END ===
     inject_styles()
+    _lpe_v110b3_readability_css()
     init_state()
     nav = render_nav()
 
@@ -1159,15 +1197,3 @@ def main() -> None:
 if __name__ == "__main__":
     main()
 
-# === LPE_V1_10B_1_MOBILE_USABILITY_RESCUE_FIXED_START ===
-# UI-only readability patch. No login, database, API, deployment, git push, or core scoring rewrite.
-try:
-    import streamlit as st
-
-    def _lpe_v110b1_readability_patch():
-        st.markdown('\n<style id="lpe-v110b1-readability-patch">\n:root {\n  --lpe-navy: #203254;\n  --lpe-navy-dark: #17243f;\n  --lpe-ink: #111827;\n  --lpe-muted: #374151;\n  --lpe-border: #d7deea;\n  --lpe-active: #ff4b5c;\n  --lpe-cream: #fffaf0;\n}\n\nhtml, body, [data-testid="stAppViewContainer"], .main, .block-container {\n  color: var(--lpe-ink) !important;\n}\np, span, div, label, li, small {\n  opacity: 1 !important;\n}\nh1, h2, h3, h4, h5, h6 {\n  color: var(--lpe-ink) !important;\n}\n\n.lpe-hero, .hero, .header-card, .title-card,\ndiv[class*="hero"], div[class*="Header"], div[class*="header"] {\n  color: #ffffff !important;\n}\n.lpe-hero *, .hero *, .header-card *, .title-card *,\ndiv[class*="hero"] *, div[class*="Header"] *, div[class*="header"] * {\n  color: #ffffff !important;\n  opacity: 1 !important;\n}\n\nsection[data-testid="stSidebar"] {\n  background: var(--lpe-navy) !important;\n  color: #ffffff !important;\n}\nsection[data-testid="stSidebar"] * {\n  opacity: 1 !important;\n}\nsection[data-testid="stSidebar"] h1,\nsection[data-testid="stSidebar"] h2,\nsection[data-testid="stSidebar"] h3,\nsection[data-testid="stSidebar"] p,\nsection[data-testid="stSidebar"] span,\nsection[data-testid="stSidebar"] label,\nsection[data-testid="stSidebar"] small {\n  color: #ffffff !important;\n  opacity: 1 !important;\n}\n\n/* Sidebar radio pills */\nsection[data-testid="stSidebar"] [data-testid="stRadio"] div[role="radiogroup"] label {\n  min-height: 42px !important;\n  border-radius: 999px !important;\n  padding: 8px 12px !important;\n  background: #ffffff !important;\n  border: 1px solid var(--lpe-border) !important;\n  color: var(--lpe-ink) !important;\n  display: flex !important;\n  align-items: center !important;\n}\nsection[data-testid="stSidebar"] [data-testid="stRadio"] div[role="radiogroup"] label * {\n  color: var(--lpe-ink) !important;\n  opacity: 1 !important;\n  visibility: visible !important;\n}\nsection[data-testid="stSidebar"] [data-testid="stRadio"] div[role="radiogroup"] label:has(input:checked) {\n  border: 2px solid var(--lpe-active) !important;\n}\n\n/* Top navigation radio pills */\n[data-testid="stRadio"] div[role="radiogroup"] {\n  display: flex !important;\n  flex-wrap: wrap !important;\n  gap: 8px !important;\n  align-items: center !important;\n}\n[data-testid="stRadio"] div[role="radiogroup"] label {\n  min-height: 42px !important;\n  border-radius: 999px !important;\n  padding: 8px 14px !important;\n  background: #ffffff !important;\n  border: 1px solid var(--lpe-border) !important;\n  color: var(--lpe-ink) !important;\n  opacity: 1 !important;\n  box-shadow: 0 1px 2px rgba(17, 24, 39, 0.06) !important;\n}\n[data-testid="stRadio"] div[role="radiogroup"] label *,\n[data-testid="stRadio"] div[role="radiogroup"] label p,\n[data-testid="stRadio"] div[role="radiogroup"] label span,\n[data-testid="stRadio"] div[role="radiogroup"] label div {\n  color: var(--lpe-ink) !important;\n  opacity: 1 !important;\n  visibility: visible !important;\n}\n[data-testid="stRadio"] div[role="radiogroup"] label:has(input:checked) {\n  background: var(--lpe-navy) !important;\n  border-color: var(--lpe-navy) !important;\n}\n[data-testid="stRadio"] div[role="radiogroup"] label:has(input:checked) *,\n[data-testid="stRadio"] div[role="radiogroup"] label:has(input:checked) p,\n[data-testid="stRadio"] div[role="radiogroup"] label:has(input:checked) span {\n  color: #ffffff !important;\n}\n\n/* Form labels and input contrast */\n[data-testid="stTextInput"] label,\n[data-testid="stTextArea"] label,\n[data-testid="stSelectbox"] label,\n[data-testid="stNumberInput"] label,\n[data-testid="stDateInput"] label,\n[data-testid="stSlider"] label,\n[data-testid="stMultiSelect"] label,\nlabel {\n  color: var(--lpe-ink) !important;\n  font-weight: 800 !important;\n  opacity: 1 !important;\n}\n[data-testid="stTextInput"] input,\n[data-testid="stTextArea"] textarea,\n[data-testid="stNumberInput"] input,\n[data-testid="stDateInput"] input,\n[data-baseweb="select"] * {\n  opacity: 1 !important;\n}\n\n/* Warning/readability */\n[data-testid="stAlert"] {\n  background: #fff7e6 !important;\n  border: 1px solid #f2be5c !important;\n  border-radius: 14px !important;\n}\n[data-testid="stAlert"] *,\n[data-testid="stAlert"] p,\n[data-testid="stAlert"] span {\n  color: #6b3f00 !important;\n  opacity: 1 !important;\n  font-weight: 700 !important;\n}\n\n/* Mobile rescue */\n@media (max-width: 820px) {\n  section[data-testid="stSidebar"] {\n    display: none !important;\n  }\n  [data-testid="stAppViewContainer"] {\n    margin-left: 0 !important;\n  }\n  .block-container {\n    padding-left: 1rem !important;\n    padding-right: 1rem !important;\n    max-width: 100% !important;\n  }\n  [data-testid="stRadio"] div[role="radiogroup"] {\n    flex-wrap: nowrap !important;\n    overflow-x: auto !important;\n    padding-bottom: 6px !important;\n    scrollbar-width: thin !important;\n  }\n  [data-testid="stRadio"] div[role="radiogroup"] label {\n    flex: 0 0 auto !important;\n    min-width: max-content !important;\n    max-width: 80vw !important;\n    white-space: nowrap !important;\n  }\n  [data-testid="column"] {\n    min-width: 100% !important;\n  }\n  h1 {\n    font-size: 2rem !important;\n    line-height: 1.2 !important;\n  }\n}\n</style>\n', unsafe_allow_html=True)
-
-    _lpe_v110b1_readability_patch()
-except Exception:
-    pass
-# === LPE_V1_10B_1_MOBILE_USABILITY_RESCUE_FIXED_END ===
