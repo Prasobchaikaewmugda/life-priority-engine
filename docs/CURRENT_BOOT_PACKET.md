@@ -452,3 +452,9 @@ NEXT_WORK_UNIT_AUTHORIZED = NO
 > ห้ามสร้างระบบใหญ่ก่อนพิสูจน์ว่าเปิดใช้จริงได้
 
 END OF FILE
+
+## V1.9_PUBLIC_DEMO_HARDENING_AND_MOBILE_FIRST_UX
+
+STATUS: IMPLEMENTED_PENDING_OWNER_VISUAL_REVIEW
+SCOPE: Mobile-first public demo hardening, onboarding, top navigation, session-only demo storage, public warning.
+BOUNDARIES: No login, no database, no API, no AI coach, no medical diagnosis/treatment, no PDF, no multi-user persistent system.

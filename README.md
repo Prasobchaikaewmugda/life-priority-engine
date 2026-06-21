@@ -217,3 +217,17 @@ TEST_DONE: Syntax; Streamlit component render and live health; browser DOM verif
 KNOWN_LIMITATIONS: Local-only, single-user, append-only V1.2; not production and not medical advice. The settings view is read-only and calorie display depends on an explicitly user-defined local value.
 NEXT_SINGLE_STEP: Owner review and acceptance of V1.2. Deployment remains unauthorized.
 ```
+
+## V1.9 Public Demo Hardening
+
+This public demo is mobile-first and uses session-only storage for demo inputs and reviews.
+
+Important limitations:
+
+- No login
+- No database
+- No multi-user persistent storage
+- No external API
+- No AI coach
+- No medical, nutrition, or treatment advice
+- Do not enter sensitive personal data in the public demo

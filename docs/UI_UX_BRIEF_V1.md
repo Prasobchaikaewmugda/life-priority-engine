@@ -74,3 +74,11 @@ Visual inspiration comes from the owner-provided Thai UI references. The app use
 - schemas and forbidden-scope audit pass
 
 Browser DOM verification confirmed sidebar navigation, the default landing view, no raw HTML or Gate wording, computed navy/cream/white styling, green active review state, purple primary action, and the 30 × 6 planner. Screenshot capture timed out, while component rendering, live health, DOM checks, and computed-style checks passed.
+
+## V1.9 Mobile First Public Demo
+
+- Mobile users must not depend on opening the Streamlit sidebar.
+- Main page includes top navigation for all views.
+- New users get an onboarding form for demo data.
+- Demo data is stored in session_state only.
+- Public demo warning must be visible.
