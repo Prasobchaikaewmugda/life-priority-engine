@@ -1,0 +1,112 @@
+{
+  "task_result_daily_reflection_v1": {
+    "status": "design_only",
+    "route": "ทบทวนวันนี้",
+    "inputs": {
+      "daily_plan": {
+        "source": "computed_or_session_daily_plan",
+        "fields": [
+          "date",
+          "plan_summary",
+          "risk_level",
+          "confidence_level",
+          "time_blocks",
+          "avoid_today",
+          "sleep_protection",
+          "minimum_viable_day",
+          "missing_information"
+        ]
+      },
+      "task_result": {
+        "fields": [
+          "block_id",
+          "planned_activity",
+          "status",
+          "actual_minutes",
+          "reason",
+          "result_note",
+          "energy_after",
+          "next_adjustment"
+        ],
+        "status_enum": [
+          "done",
+          "partial",
+          "skipped",
+          "moved",
+          "dropped"
+        ],
+        "reason_enum": [
+          "low_energy",
+          "not_enough_time",
+          "urgent_event",
+          "health_issue",
+          "task_too_big",
+          "unclear_start",
+          "low_priority",
+          "distraction",
+          "overplanned",
+          "other"
+        ]
+      },
+      "daily_reflection": {
+        "fields": [
+          "actual_energy",
+          "what_worked",
+          "what_failed",
+          "main_blocker",
+          "tomorrow_adjustment",
+          "free_story"
+        ]
+      }
+    },
+    "outputs": {
+      "daily_result": {
+        "date": "YYYY-MM-DD",
+        "result_summary": "string",
+        "completion_score": "0_to_100",
+        "task_results": [
+          {
+            "block_id": "integer_or_string",
+            "planned_activity": "string",
+            "status": "done|partial|skipped|moved|dropped",
+            "actual_minutes": "number_or_blank",
+            "reason": "enum_or_free_text",
+            "result_note": "string",
+            "energy_after": "1_to_5",
+            "next_adjustment": "string"
+          }
+        ],
+        "daily_reflection": {
+          "actual_energy": "1_to_5",
+          "what_worked": "string",
+          "what_failed": "string",
+          "main_blocker": "string",
+          "tomorrow_adjustment": "string",
+          "free_story": "string"
+        },
+        "pattern_candidates": [
+          {
+            "observation": "string",
+            "evidence": "string",
+            "confidence": "low|medium|high",
+            "should_update_profile": false
+          }
+        ],
+        "next_day_seed": {
+          "recommended_focus": "string",
+          "recommended_energy_mode": "low|medium|high",
+          "suggested_minimum_day": ["string"],
+          "warnings": ["string"]
+        }
+      }
+    },
+    "forbidden_scope": [
+      "login",
+      "database",
+      "external_api",
+      "permanent_persistence",
+      "automatic_profile_mutation",
+      "deployment"
+    ]
+  }
+}

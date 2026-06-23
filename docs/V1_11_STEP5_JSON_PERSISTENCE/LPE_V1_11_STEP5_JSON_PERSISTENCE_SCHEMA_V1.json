@@ -1,0 +1,100 @@
+{
+  "schema_version": "lpe_v1_11_json_snapshot_v1",
+  "status": "design_only",
+  "top_level": {
+    "app_name": "Life Priority Engine",
+    "schema_version": "lpe_v1_11_json_snapshot_v1",
+    "exported_at": "ISO-8601 timestamp",
+    "user_label": "string",
+    "runtime_note": "manual_export_import_no_database",
+    "core_life_profile": {},
+    "daily_contexts": {},
+    "daily_plans": {},
+    "daily_results": {},
+    "pattern_candidates_history": [],
+    "import_notes": []
+  },
+  "core_life_profile": {
+    "source": "st.session_state.lpe_profile",
+    "fields": [
+      "nickname",
+      "core_life_profile_version",
+      "life_story_modes",
+      "life_story_profile_summary",
+      "life_story_missing_modes",
+      "life_story_last_updated"
+    ]
+  },
+  "daily_contexts": {
+    "source": "st.session_state.lpe_daily_contexts",
+    "key": "YYYY-MM-DD",
+    "fields": [
+      "date",
+      "sleep_hours",
+      "energy_level",
+      "mood",
+      "today_shift",
+      "urgent_events",
+      "physical_condition",
+      "today_main_focus",
+      "today_constraints",
+      "today_story",
+      "after_save_summary",
+      "updated"
+    ]
+  },
+  "daily_plans": {
+    "source": "computed_from_daily_plan_engine_or_session_snapshot",
+    "key": "YYYY-MM-DD",
+    "fields": [
+      "date",
+      "plan_summary",
+      "risk_level",
+      "confidence_level",
+      "time_blocks",
+      "avoid_today",
+      "sleep_protection",
+      "minimum_viable_day",
+      "missing_information",
+      "generated_at"
+    ]
+  },
+  "daily_results": {
+    "source": "st.session_state.lpe_daily_results",
+    "key": "YYYY-MM-DD",
+    "fields": [
+      "date",
+      "result_summary",
+      "completion_score",
+      "task_results",
+      "daily_reflection",
+      "pattern_candidates",
+      "next_day_seed"
+    ]
+  },
+  "import_strategy_v1": {
+    "mode": "replace_session",
+    "merge_by_date": false,
+    "supported_versions": [
+      "lpe_v1_11_json_snapshot_v1"
+    ],
+    "validation": [
+      "must_be_json",
+      "schema_version_required",
+      "core_life_profile_must_be_object",
+      "daily_contexts_must_be_object",
+      "daily_results_must_be_object",
+      "no_code_execution",
+      "no_external_network"
+    ]
+  },
+  "forbidden_scope": [
+    "login",
+    "database",
+    "external_api",
+    "cloud_sync",
+    "token_storage",
+    "password_storage",
+    "deployment"
+  ]
+}

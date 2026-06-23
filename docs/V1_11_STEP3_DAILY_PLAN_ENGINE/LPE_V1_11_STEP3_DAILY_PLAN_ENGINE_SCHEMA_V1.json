@@ -1,0 +1,64 @@
+{
+  "daily_plan_engine_v1": {
+    "status": "design_only",
+    "inputs": {
+      "core_life_profile": {
+        "required_groups": [
+          "goals",
+          "time_rhythm",
+          "health_energy",
+          "obligations",
+          "life_rules"
+        ],
+        "source": "st.session_state.lpe_profile.life_story_modes"
+      },
+      "daily_context": {
+        "required_fields": [
+          "date",
+          "sleep_hours",
+          "energy_level",
+          "mood",
+          "today_shift",
+          "urgent_events",
+          "physical_condition",
+          "today_main_focus",
+          "today_constraints",
+          "today_story"
+        ],
+        "source": "st.session_state.lpe_daily_contexts[YYYY-MM-DD]"
+      }
+    },
+    "outputs": {
+      "daily_plan": {
+        "date": "YYYY-MM-DD",
+        "plan_summary": "string",
+        "risk_level": "low|medium|high",
+        "confidence_level": "low|medium|high",
+        "time_blocks": [
+          {
+            "start_time": "HH:MM or flexible",
+            "end_time": "HH:MM or flexible",
+            "activity": "string",
+            "category": "study|health|work|project|rest|meal|sleep|admin",
+            "reason": "string",
+            "fallback_if_tired": "string",
+            "success_condition": "string"
+          }
+        ],
+        "avoid_today": ["string"],
+        "sleep_protection": ["string"],
+        "minimum_viable_day": ["string"],
+        "missing_information": ["string"]
+      }
+    },
+    "forbidden_scope": [
+      "login",
+      "database",
+      "external_api",
+      "permanent_persistence",
+      "medical_diagnosis",
+      "financial_advice",
+      "deployment"
+    ]
+  }
+}

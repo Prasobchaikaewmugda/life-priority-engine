@@ -8,3 +8,21 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+
+# BEGIN LPE LOCAL GENERATED IGNORE
+.venv/
+__pycache__/
+*.pyc
+
+backups/
+reports/
+
+data/lpe_local_snapshot.json
+life_priority_engine_snapshot_*.json
+scripts/life_priority_engine_snapshot_*.json
+
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+# END LPE LOCAL GENERATED IGNORE
