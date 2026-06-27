@@ -9,6 +9,181 @@ from typing import Any
 
 import streamlit as st
 
+# BEGIN LPE_PHASE11A_PROFILE_PERSISTENCE_PATCH_V1
+# Local-only persistence for the 5-module detailed interview answers.
+# Scope: Phase11A blocker fix only. No cloud, no database, no login, no external API.
+def _lpe11a_profile_persistence_file():
+    from pathlib import Path
+    return Path("data") / "lpe_phase11a_profile_answers.json"
+
+
+def _lpe11a_profile_persistence_load():
+    import json
+    path = _lpe11a_profile_persistence_file()
+    if not path.exists():
+        return {"schema_version": "lpe_phase11a_profile_answers_v1", "answers_by_title": {}, "answers_by_key": {}}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {"schema_version": "lpe_phase11a_profile_answers_v1", "answers_by_title": {}, "answers_by_key": {}}
+    if not isinstance(data, dict):
+        data = {}
+    data.setdefault("schema_version", "lpe_phase11a_profile_answers_v1")
+    data.setdefault("answers_by_title", {})
+    data.setdefault("answers_by_key", {})
+    if not isinstance(data.get("answers_by_title"), dict):
+        data["answers_by_title"] = {}
+    if not isinstance(data.get("answers_by_key"), dict):
+        data["answers_by_key"] = {}
+    return data
+
+
+def _lpe11a_profile_persistence_save(data):
+    import json
+    from datetime import datetime, timezone
+    path = _lpe11a_profile_persistence_file()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    data["schema_version"] = "lpe_phase11a_profile_answers_v1"
+    data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def _lpe11a_profile_persistence_bootstrap_module_keys(modules):
+    """Load saved 5-module answers into stable Streamlit widget keys before rendering textareas."""
+    try:
+        data = _lpe11a_profile_persistence_load()
+        by_title = data.get("answers_by_title", {}) or {}
+        by_key = data.get("answers_by_key", {}) or {}
+        module_meta = []
+        for module in modules:
+            key = str(module.get("key", "")).strip()
+            title = str(module.get("title", "")).strip()
+            if not key:
+                continue
+            module_meta.append({"key": key, "title": title})
+            widget_key = "lpe10oc_answer_" + key
+            current = str(st.session_state.get(widget_key, "") or "")
+            saved = str(by_key.get(key, "") or by_title.get(title, "") or "")
+            if saved.strip() and not current.strip():
+                st.session_state[widget_key] = saved
+        st.session_state["_lpe11a_profile_module_meta"] = module_meta
+        st.session_state["_lpe11a_profile_persistence_loaded"] = True
+    except Exception as exc:
+        st.session_state["_lpe11a_profile_persistence_error"] = str(exc)
+
+
+def _lpe11a_profile_persistence_autosave_session():
+    """Autosave current 5-module answers from session_state to local JSON after render."""
+    try:
+        meta = st.session_state.get("_lpe11a_profile_module_meta", [])
+        if not isinstance(meta, list) or not meta:
+            return
+        data = _lpe11a_profile_persistence_load()
+        by_title = data.setdefault("answers_by_title", {})
+        by_key = data.setdefault("answers_by_key", {})
+        changed = False
+        for item in meta:
+            if not isinstance(item, dict):
+                continue
+            key = str(item.get("key", "")).strip()
+            title = str(item.get("title", "")).strip()
+            if not key:
+                continue
+            widget_key = "lpe10oc_answer_" + key
+            value = str(st.session_state.get(widget_key, "") or "")
+            if value.strip():
+                if by_key.get(key) != value:
+                    by_key[key] = value
+                    changed = True
+                if title and by_title.get(title) != value:
+                    by_title[title] = value
+                    changed = True
+        if changed:
+            _lpe11a_profile_persistence_save(data)
+            st.session_state["_lpe11a_profile_persistence_last_saved"] = data.get("updated_at", "")
+    except Exception as exc:
+        st.session_state["_lpe11a_profile_persistence_error"] = str(exc)
+# END LPE_PHASE11A_PROFILE_PERSISTENCE_PATCH_V1
+
+
+# BEGIN LPE_PHASE11A_PROFILE_PERSISTENCE_PATCH_V2_PER_MODULE_KEYS
+# Runtime fix: each detailed-interview module has its own stable textarea key.
+# This prevents answer loss when switching 1→2→1. Local JSON only; no cloud/database/network.
+def _lpe11a_profile_v2_widget_key(module_key):
+    safe = str(module_key or "").strip() or "unknown"
+    return "lpe11a_profile_answer_v2_" + safe
+
+
+def _lpe11a_profile_v2_load():
+    data = _lpe11a_profile_persistence_load()
+    data.setdefault("answers_by_title", {})
+    data.setdefault("answers_by_key", {})
+    if not isinstance(data.get("answers_by_title"), dict):
+        data["answers_by_title"] = {}
+    if not isinstance(data.get("answers_by_key"), dict):
+        data["answers_by_key"] = {}
+    return data
+
+
+def _lpe11a_profile_v2_save(data):
+    _lpe11a_profile_persistence_save(data)
+
+
+def _lpe11a_profile_v2_module_answer(module_key, module_title):
+    data = _lpe11a_profile_v2_load()
+    by_key = data.get("answers_by_key", {}) or {}
+    by_title = data.get("answers_by_title", {}) or {}
+    return str(by_key.get(str(module_key), "") or by_title.get(str(module_title), "") or "")
+
+
+def _lpe11a_profile_v2_seed_widget(module_key, module_title):
+    widget_key = _lpe11a_profile_v2_widget_key(module_key)
+    saved = _lpe11a_profile_v2_module_answer(module_key, module_title)
+    # Seed only when the widget key is absent or empty. Never overwrite typed text during rerun.
+    if saved.strip() and not str(st.session_state.get(widget_key, "") or "").strip():
+        st.session_state[widget_key] = saved
+    return widget_key
+
+
+def _lpe11a_profile_v2_save_answer(module_key, module_title, value):
+    value = str(value or "")
+    # Avoid saving the generic placeholder as a real answer.
+    generic = "ตอบเป็นภาษาคนธรรมดาได้เลย"
+    if not value.strip() or generic in value:
+        return False
+    data = _lpe11a_profile_v2_load()
+    by_key = data.setdefault("answers_by_key", {})
+    by_title = data.setdefault("answers_by_title", {})
+    changed = False
+    if by_key.get(str(module_key)) != value:
+        by_key[str(module_key)] = value
+        changed = True
+    if module_title and by_title.get(str(module_title)) != value:
+        by_title[str(module_title)] = value
+        changed = True
+    if changed:
+        _lpe11a_profile_v2_save(data)
+        st.session_state["_lpe11a_profile_persistence_last_saved"] = data.get("updated_at", "")
+    return changed
+
+
+def _lpe11a_profile_v2_sync_legacy_keys(modules):
+    """Keep old completeness checks compatible while rendering with v2 widget keys."""
+    for module in modules:
+        key = str(module.get("key", ""))
+        title = str(module.get("title", ""))
+        saved = _lpe11a_profile_v2_module_answer(key, title)
+        legacy_key = "lpe10oc_answer_" + key
+        if saved.strip():
+            st.session_state[legacy_key] = saved
+        widget_key = _lpe11a_profile_v2_widget_key(key)
+        current = str(st.session_state.get(widget_key, "") or "")
+        if current.strip() and "ตอบเป็นภาษาคนธรรมดาได้เลย" not in current:
+            _lpe11a_profile_v2_save_answer(key, title, current)
+            st.session_state[legacy_key] = current
+# END LPE_PHASE11A_PROFILE_PERSISTENCE_PATCH_V2_PER_MODULE_KEYS
+
+
 
 
 # PHASE10H_SHIFT_AWARE_DAILY_SCHEDULE_CONTENT_AND_PREMIUM_ROW_STATUS_PATCH_V1
@@ -782,43 +957,63 @@ def _lpe10k_gate_render_profile_setup():
         st.text_area("อะไรเปลี่ยนจากข้อมูลเดิม", key="lpe10oc_known_update_v1c", height=160, placeholder="ข้อมูลไหนเปลี่ยนแล้ว หรือมีอะไรที่ระบบยังไม่รู้")
         return
 
+    _lpe11a_profile_persistence_bootstrap_module_keys(modules)
+    # BEGIN LPE_PHASE11A_PROFILE_PERSISTENCE_PATCH_V2_PER_MODULE_KEYS_RENDER
+    _lpe11a_profile_v2_sync_legacy_keys(modules)
     labels = [m["title"] for m in modules] + ["ตรวจความครบ"]
-    selected = st.selectbox("เลือกหมวด", labels, key="lpe10oc_module_selector_v1c")
+    selected = st.selectbox("เลือกหมวด", labels, key="lpe11a_profile_selected_module_v2")
 
     if selected == "ตรวจความครบ":
         st.markdown("## ตรวจความครบของ 5 หมวด")
-        completed = 0
+        _lpe11a_profile_v2_sync_legacy_keys(modules)
+        completed_count = 0
         for m in modules:
-            value = str(st.session_state.get("lpe10oc_answer_" + m["key"], "")).strip()
-            if len(value) >= 50:
-                completed += 1
-                st.success("กรอกแล้ว: " + m["title"])
+            title = str(m.get("title", ""))
+            module_key = str(m.get("key", ""))
+            value = _lpe11a_profile_v2_module_answer(module_key, title).strip()
+            if value:
+                completed_count += 1
+                st.success("กรอกแล้ว: " + title)
             else:
-                st.warning("ยังควรเติม: " + m["title"])
-        st.metric("ความครบของตั้งค่าชีวิต", f"{completed}/5 หมวด")
-        st.caption("ข้อมูลครบไม่ได้แปลว่าต้องยาว แต่ควรพอให้ระบบจัดตารางจริงโดยไม่เดา")
-        return
+                st.warning("ยังไม่ครบ: " + title)
+        st.markdown("### ความครบของตั้งค่าชีวิต")
+        st.markdown(f"## {completed_count}/5 หมวด")
+        st.caption("ข้อมูลครบไม่ใช่แปลว่าต้องยาว แต่ควรพอให้ระบบจัดตารางจริงโดยไม่เดา")
+    else:
+        selected_module = next((m for m in modules if m.get("title") == selected), modules[0])
+        module_key = str(selected_module.get("key", ""))
+        module_title = str(selected_module.get("title", selected))
+        widget_key = _lpe11a_profile_v2_seed_widget(module_key, module_title)
 
-    module = next(m for m in modules if m["title"] == selected)
-    st.markdown("## " + module["title"])
-    st.markdown("### คำถามนำทางหลัก")
-    for q in module["core"]:
-        st.markdown("- " + q)
+        st.markdown("## " + module_title)
+        st.markdown("### คำถามนำทางหลัก")
+        for q in selected_module.get("questions", []):
+            st.markdown("- " + str(q))
 
-    with st.expander("คำถามเจาะลึก ถ้าต้องการให้ระบบแม่นขึ้น", expanded=False):
-        for q in module["deep"]:
-            st.markdown("- " + q)
+        deep_questions = selected_module.get("deep_questions", []) or selected_module.get("deep", []) or []
+        if deep_questions:
+            with st.expander("คำถามเจาะลึก ถ้าต้องการให้ระบบแม่นขึ้น"):
+                for q in deep_questions:
+                    st.markdown("- " + str(q))
 
-    st.text_area(
-        "คำตอบของคุณ",
-        key="lpe10oc_answer_" + module["key"],
-        height=170,
-        placeholder="ตอบเป็นภาษาคนธรรมดาได้เลย เช่น สิ่งที่อยากแก้ เวลาที่พังบ่อย ข้อจำกัดจริง และสิ่งที่ไม่อยากให้ระบบฝืน",
-    )
-
-    st.markdown("### ระบบเข้าใจเบื้องต้น / ใช้ข้อมูลนี้เพื่อ")
-    for item in module["use"]:
-        st.markdown("- " + item)
+        answer = st.text_area(
+            "คำตอบของคุณ",
+            key=widget_key,
+            height=170,
+            placeholder="ตอบเป็นภาษาคนธรรมดาได้เลย เช่น สิ่งที่อยากแก้ เวลาที่พังบ่อย ข้อจำกัดจริง และสิ่งที่ไม่อยากให้ระบบเดา",
+        )
+        _lpe11a_profile_v2_save_answer(module_key, module_title, answer)
+        st.session_state["lpe10oc_answer_" + module_key] = str(answer or "")
+        if str(answer or "").strip():
+            st.success("บันทึกอัตโนมัติแล้วสำหรับหมวดนี้")
+        elif _lpe11a_profile_v2_module_answer(module_key, module_title).strip():
+            st.info("มีข้อมูลที่บันทึกไว้แล้ว แต่ยังไม่ถูกแสดงในช่องนี้ ให้ refresh หน้านี้หนึ่งครั้ง")
+    # END LPE_PHASE11A_PROFILE_PERSISTENCE_PATCH_V2_PER_MODULE_KEYS_RENDER
+    # PHASE11A_PROFILE_INPUT_PERSISTENCE_PATCH_V2D_LINE_REPAIR_ONLY_MODULE_USE_LOCAL_ONLY_NO_STAGE_NO_COMMIT_NO_PUSH
+    if selected != "ตรวจความครบ":
+        st.markdown("### ระบบเข้าใจเบื้องต้น / ใช้ข้อมูลนี้เพื่อ")
+        for item in selected_module.get("use", []):
+            st.markdown("- " + str(item))
 
 
 def _lpe10k_gate_render_roster_report():
@@ -8045,4 +8240,11 @@ except Exception as _lpe10k_error:
     if _lpe10k_st is not None:
         _lpe10k_st.warning(f"Phase10K roster report ยังแสดงผลไม่ได้: {_lpe10k_error}")
 # --- PHASE10K_MONTHLY_ROSTER_AND_SHIFT_CHAIN_RESOLVER_PATCH_V1 END ---
+
+# BEGIN LPE_PHASE11A_PROFILE_PERSISTENCE_AUTOSAVE_CALL_V1
+try:
+    _lpe11a_profile_persistence_autosave_session()
+except Exception:
+    pass
+# END LPE_PHASE11A_PROFILE_PERSISTENCE_AUTOSAVE_CALL_V1
 
