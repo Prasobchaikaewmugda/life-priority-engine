@@ -182,6 +182,259 @@ def _lpe11a_profile_v2_sync_legacy_keys(modules):
             _lpe11a_profile_v2_save_answer(key, title, current)
             st.session_state[legacy_key] = current
 # END LPE_PHASE11A_PROFILE_PERSISTENCE_PATCH_V2_PER_MODULE_KEYS
+# BEGIN PHASE11C_DAILY_BOARD_REAL_PROFILE_CONTEXT_STATUS_SINGLE_ROW_AND_RICH_GUIDANCE_PATCH_LOCAL_ONLY_NO_STAGE_NO_COMMIT_NO_PUSH
+# Scope: connect local detailed profile answers to the daily board rendering, enrich time/reason/tip text, and reduce row status to one control.
+# Privacy: reads local data/lpe_phase11a_profile_answers.json at runtime only. The local JSON must remain untracked and must not be committed.
+def _lpe11c_load_real_profile_context():
+    try:
+        import json as _lpe11c_json
+        from pathlib import Path as _LPE11CPath
+        path = _LPE11CPath("data") / "lpe_phase11a_profile_answers.json"
+        if not path.exists():
+            return {"ready": False, "answers_by_title": {}, "answers_by_key": {}, "raw_text": "", "signals": []}
+        data = _lpe11c_json.loads(path.read_text(encoding="utf-8"))
+        by_title = data.get("answers_by_title", {}) if isinstance(data, dict) else {}
+        by_key = data.get("answers_by_key", {}) if isinstance(data, dict) else {}
+        if not isinstance(by_title, dict):
+            by_title = {}
+        if not isinstance(by_key, dict):
+            by_key = {}
+        raw_text = "\n".join(str(v) for v in list(by_title.values()) + list(by_key.values()) if str(v).strip())
+        signals = []
+        if "09" in raw_text and "11" in raw_text:
+            signals.append("ช่วง 09:00–11:00 เป็นหน้าต่างสมาธิที่ควรกันให้งานอ่าน/งานคิดจริง")
+        if "14" in raw_text and "16" in raw_text:
+            signals.append("ช่วง 14:00–16:00 เหมาะกับ block รอง เช่น ทบทวน/สรุป/งานสั้น")
+        if "เวรดึก" in raw_text or "หลังเวร" in raw_text:
+            signals.append("วันเกี่ยวกับเวรดึกต้องปกป้อง sleep block ก่อนเพิ่มงานรอง")
+        if "โปรเจกต์" in raw_text:
+            signals.append("โปรเจกต์ควรถูกจำกัดเป็น next action เดียว ไม่ให้กินเวลานอน/อ่าน")
+        if "พลังงาน" in raw_text or "เหนื่อย" in raw_text or "ล้า" in raw_text:
+            signals.append("ถ้าพลังงานตก ให้ใช้ micro-plan แทนการฝืนแผนเต็ม")
+        if "สอบ" in raw_text or "อ่าน" in raw_text:
+            signals.append("งานอ่านสอบต้องมี block ขั้นต่ำ แม้เป็นวันเวรหรือวันพลังต่ำ")
+        return {
+            "ready": bool(by_title or by_key),
+            "schema_version": data.get("schema_version", "") if isinstance(data, dict) else "",
+            "answers_by_title": by_title,
+            "answers_by_key": by_key,
+            "raw_text": raw_text,
+            "signals": signals[:6],
+        }
+    except Exception as exc:
+        return {"ready": False, "answers_by_title": {}, "answers_by_key": {}, "raw_text": "", "signals": [], "error": str(exc)}
+
+def _lpe11c_pick_tip_for_row(item, profile_context):
+    raw = str((profile_context or {}).get("raw_text", ""))
+    joined = " ".join(str(item.get(k, "")) for k in ("เวลา", "กิจวัตร", "ทำอะไร", "เหตุผล"))
+    if any(x in joined for x in ("นอน", "พัก", "หลังเวร", "เข้านอน")):
+        return "ลดจอ/ลดงานตัดสินใจ และปล่อยให้ช่วงนี้เป็น recovery จริง ไม่เปิดงานใหม่"
+    if any(x in joined for x in ("อ่าน", "สอบ", "ทวน", "สรุปโน้ต")):
+        if "09" in raw and "11" in raw:
+            return "เริ่มด้วย 25–45 นาทีแรกในช่วงสมองดี แล้วปิดด้วยสรุป 3 บรรทัด"
+        return "เริ่มจากหัวข้อย่อยเดียว 15–25 นาที เพื่อให้แผนไม่พังแม้พลังต่ำ"
+    if any(x in joined for x in ("เวร", "งานหลัก", "เตรียมตัว")):
+        return "เตรียมของ/เดินทางก่อนเวลา และห้ามเปิด scope ใหม่ก่อนเข้าเวร"
+    if any(x in joined for x in ("อาหาร", "กิน", "น้ำ")):
+        return "เลือกอาหารที่ทำได้จริง เน้นเบาและไม่ทำให้ง่วงเพิ่มก่อนงานถัดไป"
+    if "โปรเจกต์" in joined:
+        return "ทำเฉพาะ next action เดียว ถ้าล้าให้เหลือแค่บันทึก handoff"
+    return "เลือก action เล็กสุดก่อน 10–15 นาที แล้วค่อยเพิ่มถ้ายังไหว"
+
+def _lpe11c_enrich_daily_board_rows(rows, profile_context):
+    enriched = []
+    raw = str((profile_context or {}).get("raw_text", ""))
+    ready = bool((profile_context or {}).get("ready"))
+    for row in rows or []:
+        item = dict(row) if isinstance(row, dict) else {"กิจวัตร": str(row)}
+        time_text = str(item.get("เวลา") or item.get("ช่วง") or "").strip()
+        action_text = str(item.get("กิจวัตร") or item.get("ทำอะไร") or item.get("งานหลัก") or "").strip()
+        reason = str(item.get("เหตุผล") or item.get("เพราะอะไร") or "").strip()
+        if ready:
+            if "อ่าน" in action_text or "สอบ" in action_text:
+                if "09" in raw and "11" in raw:
+                    reason = (reason + " · ใช้หน้าต่างสมาธิที่คุณระบุไว้ ไม่ใช่แค่วางอ่านแบบกว้าง ๆ").strip(" ·")
+                else:
+                    reason = (reason + " · เป็น must-do ที่ควรกัน block ขั้นต่ำ").strip(" ·")
+            elif "นอน" in action_text or "พัก" in action_text or "หลังเวร" in time_text:
+                reason = (reason + " · ปกป้องพลังงานวันถัดไปและลดการเปิดงานใหม่ตอนล้า").strip(" ·")
+            elif "เวร" in action_text or "งานหลัก" in action_text:
+                reason = (reason + " · เป็นข้อจำกัดจริงของวัน จึงต้องกันเวลาเตรียมตัวและ buffer").strip(" ·")
+            elif "โปรเจกต์" in action_text:
+                reason = (reason + " · สำคัญแต่ต้องไม่แย่งเวลานอน/อ่าน จึงจำกัดเป็น block สั้น").strip(" ·")
+        item["เหตุผล"] = reason or "เชื่อมกับข้อมูลชีวิตจริงและกฎพลังงานของวันนี้"
+        item["เทคนิค"] = str(item.get("เทคนิค") or item.get("เทคนิค/คำแนะนำ") or item.get("ถ้าเหนื่อยมาก") or _lpe11c_pick_tip_for_row(item, profile_context))
+        if "รายละเอียดเวลา" not in item:
+            if "09" in time_text and "11" in time_text:
+                item["รายละเอียดเวลา"] = "แบ่งเป็น 45–50 นาทีทำจริง + พัก 5–10 นาที + สรุป 3 บรรทัด"
+            elif "หลังเวร" in time_text or "ท้ายวัน" in time_text:
+                item["รายละเอียดเวลา"] = "ลดงานใหม่ เหลือปิดวัน/เตรียมของ/นอนหรือพักจริง"
+            else:
+                item["รายละเอียดเวลา"] = "เริ่มจากงานย่อยก่อน แล้วค่อยเพิ่มถ้าพลังยังพอ"
+        enriched.append(item)
+    return enriched
+
+def _lpe11c_profile_insight_lines(profile_context):
+    signals = list((profile_context or {}).get("signals", []) or [])
+    raw = str((profile_context or {}).get("raw_text", ""))
+    if not signals:
+        signals = ["ยังไม่มีสัญญาณจาก profile มากพอ ใช้ safe default: งานหลัก + อ่านขั้นต่ำ + พักให้พอ"]
+    if "นอน" in raw or "เวร" in raw:
+        signals.append("ความรู้แฝงแบบปลอดภัย: ช่วงก่อนนอนควรลดงานที่กระตุ้นสมองและลดจอ เพื่อเข้าสู่โหมดพักง่ายขึ้น")
+    else:
+        signals.append("ความรู้แฝงแบบปลอดภัย: แผนที่ดีควรมีช่วงเริ่มเล็ก ๆ เพราะการเริ่ม 10 นาทีแรกมักยากที่สุด")
+    return signals[:4]
+
+def _lpe11c_render_profile_insight_card(profile_context):
+    try:
+        lines = _lpe11c_profile_insight_lines(profile_context)
+        badges = "".join(f"<li>{line}</li>" for line in lines)
+        st.markdown(
+            "<div style='border:1px solid #dbeafe;background:#f8fbff;border-radius:16px;padding:12px 14px;margin:8px 0 12px 0;'>"
+            "<div style='font-weight:850;color:#1e3a8a;margin-bottom:6px;'>Insight จากข้อมูลชีวิตจริงวันนี้</div>"
+            f"<ul style='margin:0 0 0 1.15rem;color:#0f172a;'>{badges}</ul>"
+            "</div>",
+            unsafe_allow_html=True,
+        )
+    except Exception as exc:
+        st.caption(f"แสดง insight จาก profile ไม่ได้: {exc}")
+
+# END PHASE11C_DAILY_BOARD_REAL_PROFILE_CONTEXT_STATUS_SINGLE_ROW_AND_RICH_GUIDANCE_PATCH_LOCAL_ONLY_NO_STAGE_NO_COMMIT_NO_PUSH
+# PHASE11C_SYNTAX_REPAIR_AFTER_STATUS_CONTEXT_PATCH_LOCAL_ONLY_NO_STAGE_NO_COMMIT_NO_PUSH
+# PHASE11C_SYNTAX_REPAIR2_CONTEXT_INDENT_LOCAL_ONLY_NO_STAGE_NO_COMMIT_NO_PUSH
+# PHASE11C_SYNTAX_REPAIR3_ROW_INDENT_LOCAL_ONLY_NO_STAGE_NO_COMMIT_NO_PUSH
+# PHASE11C_SYNTAX_REPAIR4_EXPANDER_INDENT_LOCAL_ONLY_NO_STAGE_NO_COMMIT_NO_PUSH
+# BEGIN PHASE11D_JULY_2026_ROSTER_IMPORT_AND_SHIFT_NORMALIZATION_LOCAL_ONLY_NO_STAGE_NO_COMMIT_NO_PUSH
+# Scope: load July 2026 roster from local JSON, normalize shift codes, protect V/vac exam leave, and handle ด/บ as heavy double-shift.
+def _lpe11d_roster_path():
+    try:
+        from pathlib import Path as _LPE11DPath
+        return _LPE11DPath("data") / "lpe_phase11d_july_2026_roster.json"
+    except Exception:
+        return None
+
+def _lpe11d_normalize_shift_code(raw):
+    s = str(raw or "").strip().upper().replace("*", "").strip()
+    if s in ("0", "O", "OFF", "หยุด"):
+        return "O"
+    if s in ("V", "VAC", "VACATION", "ลา"):
+        return "V"
+    if "/" in s:
+        parts = [p.strip() for p in s.split("/") if p.strip()]
+        if "ด" in parts and "บ" in parts:
+            return "ด/บ"
+        return "/".join(parts) if parts else "-"
+    if s in ("ช", "บ", "ด"):
+        return s
+    return s or "-"
+
+def _lpe11d_shift_planning_labels(norm, prev_norm="", next_norm="", date_text=""):
+    if norm == "V":
+        return "PROTECTED_EXAM_FOCUS", "EXAM_FULL_FOCUS"
+    if norm == "ด/บ":
+        return "DOUBLE_SHIFT_SLEEP_FIRST", "MICRO_REVIEW_ONLY"
+    if prev_norm == "ด" and norm == "บ":
+        return "POST_NIGHT_TO_AFTERNOON_PROTECTION", "MICRO_REVIEW_ONLY"
+    if norm == "ด" and next_norm == "บ":
+        return "PRE_DOUBLE_SHIFT_PROTECTION", "LIGHT_REVIEW_BEFORE_SLEEP"
+    if prev_norm == "บ" and norm == "ช":
+        return "SHORT_SLEEP_RISK_PROTECT_MORNING", "LIGHT_REVIEW_ONLY"
+    if prev_norm == "ช" and norm == "ด":
+        return "PRE_NIGHT_PROTECTION_DAY", "LIGHT_REVIEW_BEFORE_SLEEP"
+    if norm == "ด":
+        return "NIGHT_SHIFT_PROTECT_SLEEP", "LIGHT_PRE_SHIFT_REVIEW"
+    if norm == "ช":
+        return "MORNING_SHIFT_STABLE", "SHORT_REVIEW_AFTER_SHIFT"
+    if norm == "บ":
+        return "AFTERNOON_SHIFT_USE_MORNING_WINDOW", "MORNING_STUDY_BLOCK"
+    if norm == "O":
+        return "OFF_DAY_STUDY_AND_RECOVERY", "DEEP_STUDY_OR_CATCHUP"
+    return "NORMAL_DAY", "LIGHT_REVIEW"
+
+def _lpe11d_load_july_2026_roster_rows():
+    try:
+        import json as _lpe11d_json
+        path = _lpe11d_roster_path()
+        if path is None or not path.exists():
+            return []
+        data = _lpe11d_json.loads(path.read_text(encoding="utf-8"))
+        days = data.get("days", []) if isinstance(data, dict) else []
+        if not isinstance(days, list) or not days:
+            return []
+        normalized = []
+        for item in days:
+            if not isinstance(item, dict):
+                continue
+            date_text = str(item.get("date", "")).strip()
+            raw = str(item.get("raw_shift", item.get("shift", ""))).strip()
+            norm = str(item.get("normalized_shift") or _lpe11d_normalize_shift_code(raw)).strip()
+            normalized.append({"date": date_text, "raw": raw, "norm": norm, "day": item.get("day")})
+        rules = data.get("rules", {}) if isinstance(data, dict) else {}
+        protected_exam_dates = set(rules.get("protected_exam_dates", [])) if isinstance(rules, dict) else set()
+        rows = []
+        for idx, item in enumerate(normalized):
+            prev_norm = normalized[idx - 1]["norm"] if idx > 0 else ""
+            next_norm = normalized[idx + 1]["norm"] if idx + 1 < len(normalized) else ""
+            pm, sl = _lpe11d_shift_planning_labels(item["norm"], prev_norm, next_norm, item["date"])
+            is_v = item["norm"] == "V"
+            is_exam_protected = is_v or item["date"] in protected_exam_dates
+            rows.append({
+                "วันที่": item["date"],
+                "วัน": item.get("day"),
+                "รหัสเวร": item["norm"],
+                "เวร": item["norm"],
+                "shift": item["norm"],
+                "today_shift": item["norm"],
+                "raw_shift": item["raw"],
+                "normalized_shift": item["norm"],
+                "จากเมื่อวาน": prev_norm,
+                "ไปพรุ่งนี้": next_norm,
+                "prev_chain": prev_norm,
+                "next_chain": next_norm,
+                "planning_mode": "PROTECTED_EXAM_FOCUS" if is_exam_protected else pm,
+                "study_load": "EXAM_FULL_FOCUS" if is_exam_protected else sl,
+                "phase11d_roster_source": "july_2026_local_json",
+                "is_vacation_protected": bool(is_v),
+                "is_exam_protected": bool(is_exam_protected),
+                "notes": "V/vac = วันลา protected สำหรับสอบ ไม่มีเวรและไม่ควรถูกใส่งานหนัก" if is_v else "",
+            })
+        return rows
+    except Exception as exc:
+        try:
+            st.caption(f"โหลดตารางเวร ก.ค.69 ไม่ได้: {exc}")
+        except Exception:
+            pass
+        return []
+
+def _lpe11d_apply_july_roster_overrides(row, table_rows, profile_context=None):
+    try:
+        norm = str(row.get("normalized_shift") or row.get("รหัสเวร") or row.get("เวร") or "").strip()
+        raw = str(row.get("raw_shift") or norm).strip()
+        date_text = str(row.get("วันที่") or "").strip()
+        is_exam_protected = bool(row.get("is_exam_protected")) or norm == "V"
+        if is_exam_protected:
+            return [
+                {"เวลา": "ก่อนออกจากบ้าน / ก่อนสอบ", "กิจวัตร": "เช็คของสอบ บัตร เอกสาร น้ำ และเวลาเดินทาง", "เหตุผล": f"{date_text} เป็น V/vac = วันลา protected เพื่อสอบ ไม่ใช่วันว่างทั่วไป", "เทคนิค": "เตรียมของเป็น checklist สั้น ๆ แล้วไม่เปิดงานโปรเจกต์"},
+                {"เวลา": "ช่วงก่อนสอบ", "กิจวัตร": "ทวนเฉพาะหัวข้อสำคัญ ไม่เปิดเรื่องใหม่", "เหตุผล": "วันสอบต้องใช้พลังกับการสอบ ไม่ใช่อัดเนื้อหาใหม่จนล้า", "เทคนิค": "ทวน bullet / สูตร / จุดพลาดเดิม 15–30 นาที แล้วพักสายตา"},
+                {"เวลา": "ช่วงสอบ", "กิจวัตร": "เข้าสอบ / ทำข้อสอบ / คุมเวลา", "เหตุผล": "นี่คือภารกิจหลักของวันลา protected", "เทคนิค": "อ่านคำถามให้ครบ แบ่งเวลา และอย่าเสียเวลากับข้อเดียวเกินไป"},
+                {"เวลา": "หลังสอบ", "กิจวัตร": "พัก กินน้ำ/อาหารเบา และบันทึกสิ่งที่ต้องตามต่อ", "เหตุผล": "ลดการล้าสะสมและเก็บข้อมูลสำหรับวันถัดไปโดยไม่เปิดงานหนัก", "เทคนิค": "จด 3 บรรทัด: อะไรออกสอบ / อะไรพลาด / พรุ่งนี้ทำอะไร"},
+                {"เวลา": "ก่อนนอน", "กิจวัตร": "ปิดวันและนอนให้พอ", "เหตุผล": "รักษาพลังงานหลังวันสอบและกันวันถัดไปพัง", "เทคนิค": "งดโปรเจกต์ยาว เหลือแค่เตรียมของพรุ่งนี้ถ้าจำเป็น"},
+            ]
+        if norm == "ด/บ":
+            return [
+                {"เวลา": "หลังเวรดึก / เช้า", "กิจวัตร": "นอนหรือพักฟื้นก่อน", "เหตุผล": f"{date_text} มีเวร {raw} = ดึกต่อบ่าย เป็นวันหนักพิเศษ", "เทคนิค": "ห้ามเปิดงานใหม่ ใช้เป้าหมายเดียวคือคืนพลังให้พอสำหรับเวรถัดไป"},
+                {"เวลา": "ก่อนเวรบ่าย", "กิจวัตร": "เตรียมตัว เข้าเวร และกินเบาเท่าที่จำเป็น", "เหตุผล": "เวรสองช่วงต้องกัน buffer มากกว่าวันปกติ", "เทคนิค": "เตรียมของล่วงหน้า ลดการตัดสินใจ และเผื่อเดินทาง"},
+                {"เวลา": "ระหว่างวัน", "กิจวัตร": "micro review 5–15 นาที เฉพาะถ้าพลังพอ", "เหตุผล": "ยังรักษาเส้นอ่านสอบไว้ แต่ไม่ฝืนจนกระทบเวร/การนอน", "เทคนิค": "ทวนหัวข้อเดียวหรือ flash note เท่านั้น"},
+                {"เวลา": "หลังเวร", "กิจวัตร": "ปิดวันแบบสั้นและพักจริง", "เหตุผล": "วัน ด/บ ไม่ใช่วันที่ควรยัดโปรเจกต์หรืออ่านหนัก", "เทคนิค": "จด next action หนึ่งบรรทัดแล้วจบ"},
+            ]
+        return table_rows
+    except Exception:
+        return table_rows
+
+# END PHASE11D_JULY_2026_ROSTER_IMPORT_AND_SHIFT_NORMALIZATION_LOCAL_ONLY_NO_STAGE_NO_COMMIT_NO_PUSH
+# PHASE11D_APP_PATCH_REPAIR_AFTER_ROSTER_CREATED_LOCAL_ONLY_NO_STAGE_NO_COMMIT_NO_PUSH
+
+
 
 
 
@@ -363,6 +616,7 @@ def _lpe_phase10h_render_metrics(done_count, total_count, shift_key, energy):
 
 def _lpe_phase10h_render_schedule():
     # PHASE10O_B_TABLE_FIRST_DAILY_TIMETABLE_V1D
+# PHASE11D_STATUS_TOGGLE_LABEL_POLISH_REPAIR_TOLERANT_LOCAL_ONLY_NO_STAGE_NO_COMMIT_NO_PUSH: status toggle label polished to action-instruction wording.
     def _rows():
         try:
             data = _lpe10l_build_rows()
@@ -452,7 +706,7 @@ def _lpe_phase10h_render_schedule():
             {"เวลา": "ท้ายวัน", "กิจวัตร": "สรุปวันนี้ + เตรียมพรุ่งนี้", "เหตุผล": "ลด friction วันถัดไป"},
         ]
 
-    rows = _rows()
+    rows = _lpe11d_load_july_2026_roster_rows() or _rows()
     if not rows:
         st.warning("ยังไม่มีข้อมูลเวร/shift-chain สำหรับสร้างตารางกิจวัตรประจำวัน")
         return
@@ -462,6 +716,10 @@ def _lpe_phase10h_render_schedule():
         return
     default_date = "2026-06-26" if "2026-06-26" in date_options else date_options[0]
     selected_date = st.selectbox("เลือกวันที่", date_options, index=date_options.index(default_date), key="lpe10ob_table_first_date")
+
+    # PHASE11C: use local detailed profile as a read-only context source for the daily board.
+    phase11c_profile_context = _lpe11c_load_real_profile_context()
+    _lpe11c_render_profile_insight_card(phase11c_profile_context)
     row = next((r for r in rows if str(r.get("วันที่", "")) == str(selected_date)), rows[0])
 
     shift = _pick(row, "รหัสเวร", "เวร", "shift", "today_shift")
@@ -471,6 +729,9 @@ def _lpe_phase10h_render_schedule():
     study_load = _pick(row, "study_load")
     mode_label = _mode_th(planning_mode, study_load)
     table_rows = _build_table(row)
+    table_rows = _lpe11d_apply_july_roster_overrides(row, table_rows, phase11c_profile_context)
+    table_rows = _lpe11c_enrich_daily_board_rows(table_rows, phase11c_profile_context)
+
 
     completed = 0
     for i in range(len(table_rows)):
@@ -488,33 +749,32 @@ def _lpe_phase10h_render_schedule():
         unsafe_allow_html=True,
     )
 
-    header = st.columns([1.15, 3.0, 2.2, 1.45])
+    header = st.columns([0.85, 1.55, 2.05, 1.45, 0.85])
     header[0].markdown("**เวลา**")
     header[1].markdown("**วันนี้เวลานี้ทำอะไร**")
     header[2].markdown("**ทำไมต้องทำช่วงนี้**")
-    header[3].markdown("**สถานะ**")
+    header[3].markdown("**เทคนิค / ความรู้เสริม**")
+    header[4].markdown("**สถานะ**")
 
     for i, item in enumerate(table_rows):
-        c1, c2, c3, c4 = st.columns([1.15, 3.0, 2.2, 1.45])
+        c1, c2, c3, c_tip, c4 = st.columns([0.85, 1.55, 2.05, 1.45, 0.85])
         c1.markdown(str(item.get("เวลา", "-")))
         c2.markdown("**" + str(item.get("กิจวัตร", "-")) + "**")
         c3.caption(str(item.get("เหตุผล", "-")))
-        status = c4.selectbox(
-            "สถานะ",
-            ["ยังไม่เริ่ม", "กำลังทำ", "ทำแล้ว", "เลื่อน"],
-            key=f"lpe10ob_status_{selected_date}_{i}",
-            label_visibility="collapsed",
-        )
-        if status == "ทำแล้ว":
-            c4.success("ทำแล้ว")
-        elif status == "กำลังทำ":
-            c4.info("กำลังทำ")
-        elif status == "เลื่อน":
-            c4.warning("เลื่อน")
-        else:
-            c4.caption("ยังไม่เริ่ม")
+        c_tip.caption(str(item.get("เทคนิค", item.get("รายละเอียดเวลา", "เริ่มเล็กก่อน แล้วค่อยเพิ่มถ้ายังไหว"))))
+        # PHASE11C: single status control per row. Off = ยังไม่เริ่ม, On = ทำแล้ว.
+        legacy_status_key = f"lpe10ob_status_{selected_date}_{i}"
+        toggle_key = f"lpe11c_done_toggle_{selected_date}_{i}"
+        existing_status = st.session_state.get(legacy_status_key, "ยังไม่เริ่ม")
+        done_now = c4.toggle(
+            "ติ๊กเมื่อทำเสร็จ",
+            value=(existing_status == "ทำแล้ว"),
+            key=toggle_key,
+            help="ปิด = ยังไม่เริ่ม / เปิด = ทำแล้ว",
+            )
+        st.session_state[legacy_status_key] = "ทำแล้ว" if done_now else "ยังไม่เริ่ม"
 
-    with st.expander("เหตุผลของระบบ / แผนจาก shift-chain", expanded=False):
+    with st.expander("เหตุผลของระบบ / แผนจาก shift-chain / profile context", expanded=False):
         st.markdown(
             f'<span class="lpe10ob-badge lpe10ob-badge-gray">planning_mode: {planning_mode}</span>'
             f'<span class="lpe10ob-badge lpe10ob-badge-gray">study_load: {study_load}</span>'
