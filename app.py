@@ -614,6 +614,125 @@ def _lpe_phase10h_render_metrics(done_count, total_count, shift_key, energy):
     )
 
 
+
+# --- PHASE12B_DAILY_TIMETABLE_ROUTINE_ENGINE_PATCH_V2_REPAIR_LOCAL_ONLY_NO_STAGE_NO_COMMIT_NO_PUSH BEGIN ---
+PHASE12B_DAILY_TIMETABLE_ROUTINE_ENGINE_PATCH_V2_REPAIR_LOCAL_ONLY_NO_STAGE_NO_COMMIT_NO_PUSH = True
+
+def _lpe12b_safe_text(value, fallback="-"):
+    try:
+        text = str(value or "").strip()
+        return text if text else fallback
+    except Exception:
+        return fallback
+
+def _lpe12b_compact(text, limit=190):
+    text = _lpe12b_safe_text(text, "")
+    text = " ".join(text.split())
+    return text if len(text) <= limit else text[: max(0, limit - 1)].rstrip() + "…"
+
+def _lpe12b_item_text(item):
+    if not isinstance(item, dict):
+        return ""
+    keys = (
+        "เวลา", "ช่วง", "กิจวัตร", "งานหลัก", "วันนี้เวลานี้ทำอะไร",
+        "เหตุผล", "ทำไมต้องทำช่วงนี้", "เทคนิค", "ความรู้เสริม",
+        "task", "why", "tip"
+    )
+    return " ".join(str(item.get(k, "")) for k in keys if item.get(k)).lower()
+
+def _lpe12b_first_action_for_item(item, day_context=None, index=0):
+    day_context = day_context or {}
+    text = _lpe12b_item_text(item)
+    next_chain = _lpe12b_safe_text(day_context.get("ไปพรุ่งนี้") or day_context.get("next_chain"), "")
+    planning = _lpe12b_safe_text(day_context.get("planning_mode") or day_context.get("โหมด"), "")
+
+    if any(w in text for w in ("ตื่น", "ดื่มน้ำ", "รับแสง", "ตั้งหลัก")):
+        return "ลุกจากเตียง → ดื่มน้ำ → เปิดตารางวันนี้ 1 นาที ก่อนจับมือถือยาว"
+    if any(w in text for w in ("อ่าน", "สอบ", "ชดเชย", "ทบทวน", "โน้ต", "review")):
+        return "เปิดหัวข้อที่ค้างอยู่ → อ่าน 15 นาที → จด 3 bullet → ห้ามเปิดบทใหม่ก่อนจบหัวข้อย่อย"
+    if any(w in text for w in ("เวร", "งานหลัก", "เข้าเวร", "เริ่มงาน", "งานสำคัญ")):
+        return "เช็กงานหลัก 1 อย่าง → ทำชิ้นแรก 10-15 นาที → ไม่เปิด scope ใหม่ก่อนงานจำเป็นเดินหน้า"
+    if any(w in text for w in ("เตรียมตัว", "เดินทาง", "ออกจากบ้าน", "ก่อนเวร")):
+        return "เช็ก 3 อย่าง: กระเป๋า / น้ำ / เอกสารหรือของจำเป็น → ออกจากจุดเดิมตามเวลา"
+    if any(w in text for w in ("อาหาร", "กิน", "มื้อ", "ข้าว")):
+        return "เลือกเมนูที่ทำได้จริง → น้ำเปล่า → กินพอดี ไม่ใช้มื้อนี้เป็นรางวัลจนหนักเกิน"
+    if any(w in text for w in ("พัก", "นอน", "ฟื้นตัว", "เข้านอน", "ลดจอ", "ปิดจอ")):
+        return "ลดแสง/ลดจอ → วางมือถือไกลมือ → พักหรือนอนจริง ไม่เปิดงานใหม่"
+    if any(w in text for w in ("สรุป", "ปิดวัน", "พรุ่งนี้", "next action")):
+        return "จด 3 บรรทัด: วันนี้ทำแล้วอะไร / อะไรค้าง / พรุ่งนี้เริ่มจากอะไร"
+    if index == 0:
+        return "เริ่มจาก action เล็กที่สุด 5 นาที เพื่อให้ระบบชีวิตเริ่มเดินก่อนคิดเยอะ"
+    if "sleep" in planning.lower() or "นอน" in planning or "ดึก" in next_chain:
+        return "ทำเฉพาะ next action เดียว แล้วกันพลังไว้สำหรับการนอน/เวรถัดไป"
+    return "เลือกงานย่อยที่สุด 1 อย่าง → ทำ 10 นาทีแรก → จบแล้วค่อยตัดสินใจต่อ"
+
+def _lpe12b_low_energy_fallback_for_item(item, day_context=None, index=0):
+    day_context = day_context or {}
+    text = _lpe12b_item_text(item)
+    next_chain = _lpe12b_safe_text(day_context.get("ไปพรุ่งนี้") or day_context.get("next_chain"), "")
+    planning = _lpe12b_safe_text(day_context.get("planning_mode") or day_context.get("โหมด"), "")
+
+    if any(w in text for w in ("อ่าน", "สอบ", "ชดเชย", "ทบทวน", "โน้ต", "review")):
+        return "อ่านแค่ 10 นาที + จด 1 bullet; ถ้าหนักมากให้แค่เปิดหนังสือและ mark หัวข้อที่จะอ่านต่อ"
+    if any(w in text for w in ("เวร", "งานหลัก", "เข้าเวร", "เริ่มงาน", "งานสำคัญ")):
+        return "ทำเฉพาะงานที่หลีกไม่ได้ + handoff 1 บรรทัด; เลื่อนงานเสริมทั้งหมด"
+    if any(w in text for w in ("เตรียมตัว", "เดินทาง", "ออกจากบ้าน", "ก่อนเวร")):
+        return "เหลือ checklist 3 อย่างเท่านั้น: ของจำเป็น / เวลาออก / น้ำหรืออาหารเบา"
+    if any(w in text for w in ("อาหาร", "กิน", "มื้อ", "ข้าว")):
+        return "กินแบบง่ายที่สุดที่ไม่ทำให้พัง: น้ำ + โปรตีน/ข้าวพอดี; ไม่ต้อง perfect"
+    if any(w in text for w in ("พัก", "นอน", "ฟื้นตัว", "เข้านอน", "ลดจอ", "ปิดจอ")):
+        return "ตัดงานทั้งหมด เหลืออาบน้ำ/ลดจอ/นอนหรือพักจริง ถือว่าสำเร็จแล้ว"
+    if any(w in text for w in ("สรุป", "ปิดวัน", "พรุ่งนี้", "next action")):
+        return "เขียนแค่ 1 บรรทัด: พรุ่งนี้เริ่มจากอะไร; ไม่ต้องสรุปยาว"
+    if "sleep" in planning.lower() or "นอน" in planning or "ดึก" in next_chain:
+        return "ลดเหลือ minimum action 5 นาที แล้วปกป้องเวลานอน/ฟื้นตัวก่อน"
+    return "ทำขั้นต่ำ 5-10 นาที หรือจด handoff 1 บรรทัด แล้วหยุดก่อนพลังงานพัง"
+
+def _lpe12b_tomorrow_carry_for_item(item, day_context=None, index=0):
+    text = _lpe12b_item_text(item)
+    if any(w in text for w in ("อ่าน", "สอบ", "ชดเชย", "ทบทวน", "โน้ต", "review")):
+        return "ถ้ายังไม่จบ ให้พรุ่งนี้เริ่มจากหัวข้อเดิม ไม่เปิดบทใหม่"
+    if any(w in text for w in ("สรุป", "ปิดวัน", "พรุ่งนี้", "next action")):
+        return "ใช้บรรทัดนี้เป็นตัวเริ่มวันพรุ่งนี้"
+    if any(w in text for w in ("นอน", "พัก", "ฟื้นตัว", "เข้านอน")):
+        return "คุณภาพการพักวันนี้คือฐานพลังงานของพรุ่งนี้"
+    return "ถ้างานนี้ไม่จบ ให้บันทึก next action สั้น ๆ ไว้ก่อนปิดวัน"
+
+def _lpe12b_enrich_daily_routine_first_action_and_fallback(table_rows, day_context=None, profile_context=None):
+    enriched = []
+    for index, item in enumerate(table_rows or []):
+        row = dict(item or {})
+        row["เริ่มทันที"] = row.get("เริ่มทันที") or row.get("first_action") or _lpe12b_first_action_for_item(row, day_context, index)
+        row["ถ้าพลังงานต่ำ"] = row.get("ถ้าพลังงานต่ำ") or row.get("low_energy_fallback") or row.get("fallback") or _lpe12b_low_energy_fallback_for_item(row, day_context, index)
+        row["สานต่อพรุ่งนี้"] = row.get("สานต่อพรุ่งนี้") or row.get("tomorrow_carryover") or _lpe12b_tomorrow_carry_for_item(row, day_context, index)
+        enriched.append(row)
+    return enriched
+
+def _lpe12b_render_life_timeline_cards(table_rows, day_context=None):
+    st.markdown("### แผนวันนี้แบบการ์ด: ตื่น → หลับ")
+    st.caption("อ่านจากบนลงล่าง: เวลา / ทำอะไร / เพราะอะไร / เริ่มทันที / ถ้าพลังงานต่ำ / สานต่อพรุ่งนี้")
+    for index, item in enumerate(table_rows or []):
+        time_text = _lpe12b_safe_text(item.get("เวลา") or item.get("ช่วง") or item.get("time"))
+        task_text = _lpe12b_safe_text(item.get("กิจวัตร") or item.get("งานหลัก") or item.get("task"))
+        why_text = _lpe12b_compact(item.get("เหตุผล") or item.get("why"), 240)
+        tip_text = _lpe12b_compact(item.get("เทคนิค") or item.get("ความรู้เสริม") or item.get("tip"), 240)
+        first_action = _lpe12b_compact(item.get("เริ่มทันที") or item.get("first_action"), 260)
+        low_energy = _lpe12b_compact(item.get("ถ้าพลังงานต่ำ") or item.get("low_energy_fallback") or item.get("fallback"), 260)
+        carry = _lpe12b_compact(item.get("สานต่อพรุ่งนี้") or item.get("tomorrow_carryover"), 240)
+        try:
+            box = st.container(border=True)
+        except TypeError:
+            box = st.container()
+        with box:
+            st.markdown(f"**{time_text}**")
+            st.markdown(f"#### {task_text}")
+            st.markdown(f"**ทำไม:** {why_text}")
+            st.markdown(f"**ความรู้ที่ระบบคิดให้:** {tip_text}")
+            st.markdown(f"**เริ่มทันที:** {first_action}")
+            st.markdown(f"**ถ้าพลังงานต่ำ:** {low_energy}")
+            st.markdown(f"**ส่งต่อพรุ่งนี้:** {carry}")
+# --- PHASE12B_DAILY_TIMETABLE_ROUTINE_ENGINE_PATCH_V2_REPAIR_LOCAL_ONLY_NO_STAGE_NO_COMMIT_NO_PUSH END ---
+
 def _lpe_phase10h_render_schedule():
     # PHASE10O_B_TABLE_FIRST_DAILY_TIMETABLE_V1D
 # PHASE11D_STATUS_TOGGLE_LABEL_POLISH_REPAIR_TOLERANT_LOCAL_ONLY_NO_STAGE_NO_COMMIT_NO_PUSH: status toggle label polished to action-instruction wording.
@@ -730,6 +849,7 @@ def _lpe_phase10h_render_schedule():
     mode_label = _mode_th(planning_mode, study_load)
     table_rows = _build_table(row)
     table_rows = _lpe11d_apply_july_roster_overrides(row, table_rows, phase11c_profile_context)
+    table_rows = _lpe12b_enrich_daily_routine_first_action_and_fallback(table_rows, row, phase11c_profile_context)
     table_rows = _lpe11c_enrich_daily_board_rows(table_rows, phase11c_profile_context)
 
 
@@ -756,6 +876,9 @@ def _lpe_phase10h_render_schedule():
     header[3].markdown("**เทคนิค / ความรู้เสริม**")
     header[4].markdown("**สถานะ**")
 
+    _lpe12b_render_life_timeline_cards(table_rows, row)
+
+    st.markdown("### ตารางเดิม / ติ๊กสถานะ")
     for i, item in enumerate(table_rows):
         c1, c2, c3, c_tip, c4 = st.columns([0.85, 1.55, 2.05, 1.45, 0.85])
         c1.markdown(str(item.get("เวลา", "-")))
